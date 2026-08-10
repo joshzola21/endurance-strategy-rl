@@ -1,0 +1,168 @@
+verify_00_landed — /Users/joshzola/Documents/motorsport/endurance racing/endurance strategy rl
+run at 2026-08-10 01:46:15
+python 3.12.9, cwd /Users/joshzola/Documents/motorsport/endurance racing/endurance strategy rl
+
+========================================================================
+A. Git — did files on disk actually change?
+========================================================================
+no git repository; skipping. Everything below is still valid, but there is no record of what changed when.
+
+========================================================================
+B. The frozen dials — do they describe one real race?
+========================================================================
+
+--- /Users/joshzola/Documents/motorsport/endurance racing/endurance strategy rl/data/processed/imsa.json   (modified 2026-08-09 03:46)
+  name        : Daytona 24 2026
+  duration    : 86,296 s = 23.97 h = 0.999 x 24 h
+  classes     : 4, 60 cars
+    GTD       pace= 108.40 deg=+0.00912 stint= 30.0 pit= 90.50 sd= 19.61 cars= 21 caution=0.353 | Daytona 2026 (imsa session 682)
+    GTDPRO    pace= 108.15 deg=+0.00694 stint= 31.0 pit= 90.52 sd= 22.38 cars= 15 caution=0.353 | Daytona 2026 (imsa session 682)
+    LMP2      pace= 102.04 deg=+0.00379 stint= 24.0 pit= 90.64 sd= 25.30 cars= 13 caution=0.353 | Daytona 2026 (imsa session 682)
+    GTP       pace=  98.08 deg=+0.00135 stint= 30.0 pit= 89.81 sd= 16.93 cars= 11 caution=0.353 | Daytona 2026 (imsa session 682)
+  VERDICT     : OK
+
+--- /Users/joshzola/Documents/motorsport/endurance racing/endurance strategy rl/data/processed/wec.json   (modified 2026-08-09 03:46)
+  name        : Le Mans 24 2026
+  duration    : 86,176 s = 23.94 h = 0.997 x 24 h
+  classes     : 3, 62 cars
+    LMGT3     pace= 237.69 deg=+0.03154 stint= 10.0 pit= 78.70 sd= 15.17 cars= 25 caution=0.088 | Le Mans 2026 (wec session 1000)
+    LMP2      pace= 219.77 deg=-0.03270 stint= 11.0 pit= 88.59 sd= 16.87 cars= 19 caution=0.088 | Le Mans 2026 (wec session 1000)
+    HYPERCAR  pace= 208.80 deg=-0.03217 stint= 12.0 pit= 76.99 sd= 12.70 cars= 18 caution=0.088 | Le Mans 2026 (wec session 1000)
+  VERDICT     : OK
+
+========================================================================
+C. Fingerprints — does every artefact agree on which dials it used?
+========================================================================
+
+  fingerprint 76bac232842e2d4f
+    data/processed/imsa_field.json  (2026-08-09 09:14)
+    data/processed/imsa_seeds.json  (2026-08-09 09:14)
+    outputs/evaluation/imsa_headline_provenance.json  (2026-08-09 07:49)
+    outputs/evaluation/imsa_headline_provenance.json  (2026-08-09 07:49)
+    outputs/evaluation/imsa_held_out_provenance.json  (2026-08-09 07:53)
+    outputs/evaluation/imsa_held_out_provenance.json  (2026-08-09 07:53)
+    outputs/policies/imsa_maskable_ppo.card.json  (2026-08-08 21:24)
+    outputs/sweeps/imsa_pit_transit_frac_provenance.json  (2026-08-09 08:22)
+
+  fingerprint 5af034500e722532
+    data/processed/wec_field.json  (2026-08-09 09:18)
+    data/processed/wec_seeds.json  (2026-08-09 09:18)
+    outputs/evaluation/wec_headline_provenance.json  (2026-08-09 09:34)
+    outputs/evaluation/wec_headline_provenance.json  (2026-08-09 09:34)
+    outputs/evaluation/wec_held_out_provenance.json  (2026-08-09 09:36)
+    outputs/evaluation/wec_held_out_provenance.json  (2026-08-09 09:36)
+    outputs/policies/wec_maskable_ppo.card.json  (2026-08-09 09:25)
+    outputs/sweeps/wec_pit_transit_frac_provenance.json  (2026-08-09 09:46)
+
+  VERDICT: 2 DIFFERENT fingerprints on disk. Artefacts built against different dials are being used together.
+
+========================================================================
+D. Modification order — is it consistent with the claimed sequence?
+========================================================================
+           MISSING  notebooks/02c_strategies.ipynb
+           MISSING  notebooks/03a_rl_setup.ipynb
+  2026-07-27 15:21  data/raw/laps.csv
+  2026-08-08 19:55  src/endurance/calibrate.py
+  2026-08-08 20:36  build_nb.py
+  2026-08-08 20:57  notebooks/02b_benchmark.ipynb
+  2026-08-08 21:04  src/endurance/gate00.py
+  2026-08-08 21:11  scripts/freeze_assets.py
+  2026-08-08 21:24  outputs/policies/imsa_maskable_ppo.card.json
+  2026-08-09 03:46  data/processed/imsa.json
+  2026-08-09 03:46  data/processed/wec.json
+  2026-08-09 03:47  notebooks/01_race_engine.ipynb
+  2026-08-09 03:50  notebooks/02a_engine_corrections.ipynb
+  2026-08-09 08:36  notebooks/03b_rl_training.ipynb
+  2026-08-09 08:38  notebooks/00_data_recon.ipynb
+  2026-08-09 09:14  data/processed/imsa_field.json
+  2026-08-09 09:18  data/processed/wec_field.json
+  2026-08-09 09:25  outputs/policies/wec_maskable_ppo.card.json
+
+  Expected order: laps.csv, then source, then the processed JSONs,
+  then the frozen assets, then the policy checkpoints, then the
+  notebooks. A checkpoint older than imsa.json was not retrained.
+
+========================================================================
+E. Notebooks — do they match build_nb.py, and were they really run?
+========================================================================
+--- regenerated into a temp dir (the real notebooks are untouched)
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/00_data_recon.ipynb - 27 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/01_race_engine.ipynb - 29 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/02a_engine_corrections.ipynb - 56 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/02b_benchmark.ipynb - 25 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/02c_human_strategies.ipynb - 30 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/03a_gym_wrapper.ipynb - 31 cells
+   wrote /private/var/folders/k5/nhsb9yc17d7_0n8tgksxb9tm0000gn/T/tmp48x73638/notebooks/03b_rl_training.ipynb - 39 cells
+
+--- 00_data_recon.ipynb
+  13 code cells, 13 executed, 13 carrying output   (modified 2026-08-09 08:38)
+  code cells MATCH build_nb.py
+
+--- 01_race_engine.ipynb
+  17 code cells, 17 executed, 17 carrying output   (modified 2026-08-09 03:47)
+  code cells MATCH build_nb.py
+
+--- 02a_engine_corrections.ipynb
+  23 code cells, 23 executed, 20 carrying output   (modified 2026-08-09 03:50)
+  code cells MATCH build_nb.py
+
+--- 02b_benchmark.ipynb
+  9 code cells, 0 executed, 0 carrying output   (modified 2026-08-08 20:57)
+  9 code cells were never executed
+  code cells MATCH build_nb.py
+
+--- 02c_strategies.ipynb
+  MISSING on disk
+
+--- 03a_rl_setup.ipynb
+  MISSING on disk
+
+--- 03b_rl_training.ipynb
+  18 code cells, 18 executed, 18 carrying output   (modified 2026-08-09 08:36)
+  code cells DIFFER from build_nb.py (18 on disk vs 18 generated)
+    first difference at code cell 1:
+      on disk  : N_FLOOR = 30          # seeds the random floor is measured on
+      generated: N_FLOOR = 30          # seeds the random floor is measured on
+    -> a hand edit in the .ipynb is lost on the next build
+
+========================================================================
+F. Source — is the code on disk the code that was agreed?
+========================================================================
+
+--- src/endurance/calibrate.py   (modified 2026-08-08 19:55)
+  NO   car read as text
+  yes  session resolver present
+  yes  stints from pit records
+  yes  named caution set
+  yes  !! ILIKE scoping still reachable
+
+--- src/endurance/gate00.py   (modified 2026-08-08 21:04)
+  yes  GREEN referenced
+  yes  calibrate import line
+  yes  replacement condition two
+  yes  condition four exemption
+  yes  diagnostic present
+
+--- scripts/freeze_assets.py   (modified 2026-08-08 21:11)
+  yes  reads the frozen dials
+  yes  any literal 6 — check by eye for a hardcoded 6h race
+
+--- tests/sqlite_shim.py   (modified 2026-08-08 19:54)
+  yes  car read as text in tests
+
+--- gate00.py imports
+    from __future__ import annotations
+    from collections.abc import Sequence
+    import numpy as np
+    import pandas as pd
+    from .calibrate import GREEN, build_race_config, calibrate_pace
+    from .engine import run_race
+    from .params import RaceConfig
+
+========================================================================
+G. Tests
+========================================================================
+........................................................................ [ 33%]
+........................................................................ [ 67%]
+....................................................................     [100%]
+212 passed in 47.85s

@@ -1,0 +1,27 @@
+--- /tmp/engine_orig.py	2026-08-05 13:33:57.251654960 +0000
++++ src/endurance/engine.py	2026-08-05 13:34:45.251588937 +0000
+@@ -661,20 +661,21 @@
+             if key not in self._waves_frozen:
+                 self._waves_frozen.add(key)
+                 self._waves_pending[key] = wave_eligible(
+-                    self.cars, self._progress(t))
++                    self.cars, self._progress(t, crossing=car.car_id))
+             if car.car_id in self._waves_pending[key]:
+                 self._waves_pending[key].discard(car.car_id)
+                 return True
+         return False
+ 
+-    def _progress(self, t: float) -> dict[str, float]:
++    def _progress(self, t: float, crossing: str | None = None) -> dict[str, float]:
+         """Laps completed plus the fraction of the current lap, per active car.
+ 
+         The same fractional-progress view the traffic penalty uses, so the
+         engine has one idea of where a car is rather than two.
+         """
+         fracs = np.clip((t - self._arr_lap_start) / self._arr_lap_expected, 0.0, 1.0)
+-        return {c.car_id: c.laps_done + float(fracs[self._idx[c.car_id]])
++        return {c.car_id: c.laps_done + (0.0 if c.car_id == crossing
++                                         else float(fracs[self._idx[c.car_id]]))
+                 for c in self.cars.values() if not c.finished}
+ 
+     def _episode_index(self, t: float) -> int | None:

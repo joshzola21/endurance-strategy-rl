@@ -1,0 +1,50 @@
+{
+  "race": "Daytona 24 2026",
+  "series_code": "imsa",
+  "dials_fingerprint": "76bac232842e2d4f",
+  "n_seeds": 200,
+  "class": "GTP",
+  "pace_rank": 5,
+  "null": "fuel_window",
+  "background": "fuel_window",
+  "bank": "headline",
+  "bank_fingerprint": "d9b110e4014ad7f4",
+  "dials_source": "STAND-IN, not calibrated",
+  "agent": true,
+  "policy_card": {
+    "series_code": "imsa",
+    "algorithm": "MaskablePPO",
+    "dials_fingerprint": "76bac232842e2d4f",
+    "bank_fingerprint": "d9b110e4014ad7f4",
+    "train_seed": 0,
+    "total_timesteps": 500000,
+    "n_envs": 8,
+    "checkpoint": "imsa_maskable_ppo.zip",
+    "onnx": "imsa_maskable_ppo.onnx",
+    "checkpoint_sha256": "cf6afdfa5a1e044f",
+    "onnx_sha256": "b422b4e7765089f3",
+    "trained_at": "2026-08-10T16:16:23+00:00",
+    "notes": {
+      "race": "Daytona 24 2026",
+      "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
+      "trained_on": "headline bank only; held-out refused by the env",
+      "hyperparameters": {
+        "n_steps": 512,
+        "batch_size": 512,
+        "gamma": 1.0,
+        "gae_lambda": 0.95,
+        "learning_rate": 0.0003,
+        "ent_coef": 0.01
+      },
+      "net_arch": [
+        64,
+        64
+      ],
+      "mask": "applied in training; PolicyStrategy carries none",
+      "reward": "one lap credited per completed lap"
+    }
+  },
+  "benchmark_joined": false,
+  "evaluated_at": "2026-08-10T16:50:45+00:00",
+  "bootstrap_resamples": 2000
+}
