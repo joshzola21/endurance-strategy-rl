@@ -1,19 +1,19 @@
 {
   "series_code": "wec",
   "algorithm": "MaskablePPO",
-  "dials_fingerprint": "5af034500e722532",
+  "dials_fingerprint": "5cb7cf63e4446105",
   "bank_fingerprint": "fb5c4439f77c420d",
   "train_seed": 0,
   "total_timesteps": 500000,
   "n_envs": 8,
   "checkpoint": "wec_maskable_ppo.zip",
   "onnx": "wec_maskable_ppo.onnx",
-  "checkpoint_sha256": "48e5525da2e69724",
-  "onnx_sha256": "a5a3e7982006bf6d",
-  "trained_at": "2026-08-10T16:27:24+00:00",
+  "checkpoint_sha256": "c35b7f1c48a09911",
+  "onnx_sha256": "d05a9bb3a69ffde1",
+  "trained_at": "2026-08-22T05:51:11+00:00",
   "notes": {
     "race": "Le Mans 24 2026",
-    "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
+    "dials_source": "calibrated from Le Mans 2026 (wec session 1000)",
     "trained_on": "headline bank only; held-out refused by the env",
     "hyperparameters": {
       "n_steps": 512,
@@ -28,6 +28,6 @@
       64
     ],
     "mask": "applied in training; PolicyStrategy carries none",
-    "reward": "one lap credited per completed lap"
+    "reward": "places gained in class, credited as they change"
   }
 }

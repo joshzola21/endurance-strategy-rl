@@ -122,13 +122,35 @@ def stand_in(series_code: str) -> RaceConfig:
 # Where things live, in one place so nothing has to guess
 # ----------------------------------------------------------------------
 def config_path(series_code: str, processed: Path = PROCESSED) -> Path:
-    """Where the frozen (real-or-stand-in) config is banked.
+    """Where the banked config is **written**.
 
     Deliberately not `{series}.json` - that name is 00's own output, read
     directly by `freeze()` when present rather than copied here, so there is
     one place a reader checks to see which dials a bank was drawn against.
+
+    It used to be `{series}_standin.json`, and by 05 that name was the last
+    surviving piece of the stand-in story: the file has been a byte-for-byte
+    copy of the real calibrated config since 00 was re-run. A file named for
+    something it stopped being is where a false `dials_source` came from and
+    kept coming back, so it is now named for what it is.
     """
-    return processed / f"{series_code}_standin.json"
+    return processed / f"{series_code}_banked.json"
+
+
+# The old name, still read so a tree frozen before the rename works untouched.
+# Nothing writes it. `mv data/processed/imsa_standin.json
+# data/processed/imsa_banked.json` migrates without re-drawing anything.
+LEGACY_CONFIG = "{code}_standin.json"
+
+
+def banked_config_path(series_code: str, processed: Path = PROCESSED) -> Path | None:
+    """Where the banked config is **read**: the new name, then the old one."""
+    for name in (config_path(series_code, processed).name,
+                 LEGACY_CONFIG.format(code=series_code)):
+        candidate = processed / name
+        if candidate.exists():
+            return candidate
+    return None
 
 
 def real_config_path(series_code: str, processed: Path = PROCESSED) -> Path:
@@ -152,8 +174,9 @@ def load_assets(series_code: str, processed: Path = PROCESSED):
     drawn against different dials describes different races under the same
     seed numbers, and nothing downstream would notice.
     """
-    paths = (config_path(series_code, processed), bank_path(series_code, processed),
-             field_path(series_code, processed))
+    banked = banked_config_path(series_code, processed)
+    paths = (banked or config_path(series_code, processed),
+             bank_path(series_code, processed), field_path(series_code, processed))
     missing = [p for p in paths if not p.exists()]
     if missing:
         raise FileNotFoundError(
@@ -195,7 +218,11 @@ def freeze(series_code: str, processed: Path = PROCESSED,
            force: bool = False) -> None:
     paths = (config_path(series_code, processed), bank_path(series_code, processed),
              field_path(series_code, processed))
-    existing = [p for p in paths if p.exists()]
+    # Existence is asked of the *read* path, so a tree still carrying
+    # `{code}_standin.json` counts as frozen and is left alone rather than
+    # redrawn under the new name.
+    banked = banked_config_path(series_code, processed)
+    existing = [p for p in (banked, *paths[1:]) if p is not None and p.exists()]
     if existing and not force:
         print(f"{series_code}: already frozen, leaving alone "
               f"({', '.join(p.name for p in existing)})")

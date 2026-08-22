@@ -1,0 +1,30 @@
+# Everything needed to reproduce the project rather than only to run the app.
+#
+#     pip install -r requirements-dev.txt
+#
+# This is the machine that trains a policy, scores it, calibrates the dials
+# from the raw timing and executes the notebooks. `requirements.txt` is the
+# hosted app's set and is a strict subset.
+#
+# What each addition is for:
+#
+#   torch, stable_baselines3, sb3-contrib   `scripts/train.py`, and
+#       `scripts/evaluate.py`, which loads the `.zip` rather than the export
+#   onnx                                    writing the export
+#   duckdb                                  `endurance/calibrate.py`, stage 00
+#   pytest                                  `pytest tests/`; the suite also
+#       runs without it via `python tests/run_tests_nopytest.py`
+#   jupyter                                 the six notebooks
+#
+# `scipy` was in the old requirements file and is not here: nothing in the
+# project imports it.
+
+-r requirements.txt
+
+torch==2.13.0
+stable_baselines3==2.9.0
+sb3_contrib==2.9.0
+onnx==1.22.0
+duckdb==1.5.5
+pytest==9.1.1
+jupyter==1.1.1

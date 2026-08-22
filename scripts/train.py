@@ -84,7 +84,8 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from endurance.assets import dials_fingerprint                  # noqa: E402
+from endurance.assets import (dials_fingerprint,               # noqa: E402
+                               dials_source)
 from endurance.gym_env import REWARD, EnduranceEnv              # noqa: E402
 from endurance.policy import (                                  # noqa: E402
     PolicyCard, bank_fingerprint, file_sha256,
@@ -293,7 +294,10 @@ def train(series_code: str, timesteps: int = TIMESTEPS, n_envs: int = N_ENVS,
         trained_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         notes={
             "race": config.name,
-            "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
+            # Derived from the config, for the reason `REWARD` is read
+            # from the module below rather than retyped: this key was
+            # false on every card the project has written.
+            "dials_source": dials_source(config),
             "trained_on": "headline bank only; held-out refused by the env",
             "hyperparameters": {k: v for k, v in HYPERPARAMS.items()
                                 if k != "policy_kwargs"},

@@ -8,10 +8,13 @@ Everything below was chosen deliberately in a decision quiz, in the same
 spirit as the four decisions taken in the 01 thread. It should not be
 silently reversed later.
 
-**Amended seven times since it was written.** Decisions 17, 9 item 5 and 9
-item 3 have been replaced, and 03a settled three questions this record left
-open for it. The amendment log is at the foot of this document and the
-superseded text is kept there rather than deleted.
+**Amended twenty-seven times since it was written.** Decisions 17, 9 item 5
+and 9 item 3 have been replaced; 03a settled three questions this record left
+open for it; 03a, 03b, 00 and 04 each arrived without a verification gate and
+each had one supplied; and the 00 re-run replaced the dials the whole project
+is measured against. The amendment log is at the foot of this document and the
+superseded text is kept there rather than deleted, which is why the log is
+longer than the decisions.
 
 ---
 
@@ -19,18 +22,34 @@ superseded text is kept there rather than deleted.
 
 | Stage | Status |
 |---|---|
-| 00 — data recon | done; **calibration wrong, and now diagnosed** — see below |
+| 00 — data recon | done, re-run and gated; dials calibrated — amendments 11-13 |
 | 01 — the race engine | done, Part 6 re-run outstanding |
 | 02a — engine corrections | done, plus one correction landed from 02b |
-| 02b — the per-race benchmark | done; per-seed artefacts still not produced |
-| 02c — human-style strategies and the comparison | done |
-| 03a — the gym wrapper | done |
-| 03b — RL training | apparatus done and gated; **no agent result yet** — see amendment 8 |
-| **04 — the Streamlit app** | **next** |
+| 02b — the per-race benchmark | done; **degenerate on real dials**, no benchmark row anywhere |
+| 02c — human-style strategies and the comparison | done; re-scored at 03b |
+| 03a — the gym wrapper | done and gated |
+| 03b — RL training | done and gated on real dials; **agent at the random floor** — amendment 14 |
+| 04 — the Streamlit app | done and gated — `handovers/handover_04_app.md`, amendments 17-22 |
+| post-04 pass | done — `handovers/handover_05_pass.md`, amendments 23-27. Four environment traps measured; **both agent results withdrawn** |
+| **05 — the write-up** | **next** |
+
+**That pass has now run.** Dials are IMSA `54de878a6d26afbf` and WEC
+`5cb7cf63e4446105`; seeds and background fields are unchanged in content. Every
+roster table in this document predates the `stop_cost` floor and is superseded -
+`caution_gambler`'s advantage was largely the transit discount, and `lap_down`
+was suppressed by it. **Every agent number in this document is withdrawn**, not
+because it was recomputed but because amendment 26 shows a single training run
+does not measure anything. Read amendments 23 to 27 before quoting any row.
 
 02 was split. The benchmark is what makes 03's numbers mean anything and is
 the part most likely to expose an engine bug, so it went first. A
 half-finished 02c blocks nothing; a half-finished 02b blocked everything.
+
+**Resolved at the 00 re-run; kept because the diagnosis was right and the
+record of it is worth more than the space. See amendments 11 to 13, and
+`handovers/handover_00_re_run.md` for what the re-run actually found — two
+independent faults that composed, not one, plus a nondeterminism nobody had
+suspected.**
 
 **00's calibration is not merely unverified; it is wrong, and the fault is
 locatable.** 03b read the frozen dials rather than assuming them. The base
@@ -1050,6 +1069,400 @@ be verified against the current table exactly — same seeds, same dials, same
 numbers — and it converts every future pass from an evening into an hour.
 Amendments 13 and 14 both become cheap the moment it lands, and both are
 deferred until it does.
+
+---
+
+### Amendment 17 — 04's verification gate, supplied rather than dropped
+
+Superseded text: none. The blueprint specified 04 with a boundary constraint
+and a feature list and no gate — the third stage in a row, after 03a and 03b,
+to arrive without one, and the condition this record named at 02c as a gate
+nobody can fail.
+
+Two conditions, four falsifiers, both passing on both series. Neither imports
+Streamlit: a gate that needs a browser is a gate nobody runs.
+
+1. **The app steps the race everything else was measured on.** A race driven
+   through `RaceController` with no human override reproduces
+   `harness.run_focal`'s classification bit for bit — five headline seeds per
+   series, eight columns. Plus: a seeked race equals a driven one, a session
+   round-trips through JSON, and a session restored against different dials is
+   refused.
+2. **Presentation only, mechanically.** An AST walk over `app/` asserts that a
+   race is stepped in exactly one module, that no app module reaches for the
+   engine's private working, and that no app module imports a plotting library.
+   Two subprocess checks assert that `import endurance` drags in neither
+   Streamlit nor `app`.
+
+**The first falsifier had to be strengthened, and the reason is a finding of
+its own.** Written as `caution_gambler` against `fuel_window`, it was inert on
+two of five WEC seeds: art. 14.6.5 releases the whole field at once, so far
+fewer caution stops are reachable and the gambler frequently has nothing to do.
+The gate now uses `splash_and_dash` and requires *every* seed to differ;
+`splash_and_dash` and `track_position` both differ on five of five in both
+series. A falsifier inert two times in five is barely a falsifier, and this one
+would have passed on a controller that ignored its seat entirely.
+
+Gate B cannot decide "no physics" in general. It decides the ways physics has
+actually arrived in this project before, which is what a regression gate is for.
+
+---
+
+### Amendment 18 — the sliders and the policy card, which collide
+
+Superseded text: none. Two requirements that are each correct and cannot both
+be satisfied as written.
+
+Section 4 makes sidebar sliders driving `scale_dials` 04's headline feature.
+Amendment 9's card tripwire has `load_policy` refuse a policy whose dials do
+not match the race it is about to be scored on. Move any slider and the agent
+is, correctly, refused — so 04 as specified cannot show the agent and the
+sliders on the same page.
+
+**Resolved by distinguishing driving a policy from scoring one.** The card
+exists to stop a *table* being published against the wrong race: a policy
+trained on one set of dials and evaluated on another produces a complete,
+plausible, meaningless comparison. The app does not publish comparisons
+off-nominal.
+
+So the policy may be **driven** at any dial setting — watching it fail on a
+race it was not trained for is the demonstration, and the failure is legible
+rather than silent — and may be **scored** only at nominal. `Agent.nominal`
+goes false the moment any dial actually differs, computed from the fingerprint
+rather than from whether a widget was touched, and no comparison number is
+shown while it is false. The card check against nominal dials still runs
+unconditionally at load: that is what says the checkpoint belongs to this race
+at all, and it is not skipped because a slider moved.
+
+The comparison page follows the same rule from the other side: off-nominal it
+offers a live run with the agent left out, and says why.
+
+---
+
+### Amendment 19 — `app/`, and three things that stopped it starting
+
+Superseded text: section 2's module map, which names `src/endurance`,
+`notebooks/` and `scripts/` and has no entry for a user interface.
+
+**`app/` sits beside `src/` and `scripts/`.** Streamlit is not a dependency of
+`import endurance`, and gate B asserts that importing the package drags in
+neither Streamlit nor the app. `controller.py`, `loading.py`, `panels.py` and
+`statements.py` import no Streamlit, so the gates exercise them headlessly;
+only the four page files do.
+
+Recorded because each cost a debugging cycle and none is discoverable from the
+blueprint.
+
+**`streamlit run app/Home.py` puts the entry script's own directory on
+`sys.path` and nothing else.** So `import app` fails, and then `import
+endurance` fails, and they need fixing in different places because the first
+gates the second. `app` can only be fixed by a raw two-line insert of the
+project root at the top of each entry point — a helper cannot, because
+importing the helper is the thing that fails. `endurance` is then fixable once,
+in `app/__init__.py`, conditional on `find_spec` so an installed package always
+wins. **The permanent fix is `pip install -e .`.**
+
+**Directories are resolved, not hard-coded.** The module map says nothing about
+where frozen artefacts live, and in this tree they are not under `assets/`:
+configs and banks are in `data/processed/`, policies in `outputs/policies/`,
+evaluations in `outputs/evaluation/`. Resolution is an environment variable,
+then the conventional names, then a search of the tree for the files
+themselves, and `Home` prints what it settled on — a path resolved silently is
+a path nobody can debug.
+
+**Both artefact naming conventions are accepted** — `imsa_seeds.json` and
+`seed_bank_imsa.json`, `imsa_field.json` and `background_field_imsa.json` — and
+neither is preferred. Guessing which generation is current is exactly the
+judgement `load_assets` refuses to make; it checks fingerprints instead.
+
+**`load_assets` checks the three files against each other.** Every artefact
+carries a fingerprint and each was checked where it is *used*; nothing checked
+the three the app opens *together*. That gap held a live instance: a seed bank
+and background field for a three-hour IMSA race, fingerprint `420186160d860b42`,
+frozen ninety-seven minutes after the twenty-four-hour set, with no config in
+the tree matching them. Loaded by name they produce a complete, plausible race
+no other stage can reproduce.
+
+---
+
+### Amendment 20 — `policy.py` gains the logits it already exports
+
+Superseded text: none. `policy.py`'s own docstring says the export carries
+logits rather than the chosen action, and gives the reason — "04 promises
+visible action probabilities, and a softmax over logits gives them for free; an
+export of the argmax alone would have thrown away the thing the panel is for."
+
+The export does carry them. **Nothing read them.** `_onnx_predict` ran the
+session, took an argmax and dropped the vector; the only remaining handle was
+`strategy._backend`, a private attribute the module keeps alive so onnxruntime
+does not segfault.
+
+Two places the reader could live. In the app, where it would be a second call
+into the session and therefore a second way of turning a checkpoint into an
+answer — decision 6's failure by the quieter route `policy.py` exists to close,
+and one that could disagree with the decision the same policy is taking. Or
+beside the loader, sharing one session. It goes beside the loader.
+
+`action_logits(strategy, obs)` and `action_probabilities(strategy, obs)` are
+added at module level; each backend attaches a `logits` handle to the callable
+it returns. The SB3 branch wraps `model.predict` in a closure rather than
+hanging an attribute on the bound method's underlying function, which would set
+it for every model in the process. Torch is imported inside that closure: the
+package must still import with neither Stable-Baselines3 nor torch, which is
+asserted in a subprocess.
+
+`action_probabilities` is **unmasked**, matching `PolicyStrategy` and the way
+the agent was scored. Masking it would make the panel disagree with the race
+running next to it.
+
+---
+
+### Amendment 21 — the fingerprint does not cover the rules
+
+Superseded text: none. This is a gap in `dials_fingerprint`'s coverage, found
+while planning the next pass rather than while building 04.
+
+`dials_fingerprint` hashes `config.to_dict()`, which is parameters only. Every
+tripwire in this project rests on it: the seed banks, the background fields,
+`PolicyCard.check`, `NullRuns`, and now `load_assets` and the app's session
+state.
+
+**Amendment 14's `stop_cost` floor lives in `pitstop.py`'s logic, not in the
+parameters.** A pure logic fix therefore changes every race in the project
+while leaving every fingerprint identical. Seed banks, fields, policy cards and
+saved evaluation tables would all continue to match, and would all be about
+races that no longer happen. The mechanism that has caught three separate
+artefact collisions would report nothing.
+
+Two ways to close it, and one must be chosen before amendment 14 is
+implemented:
+
+1. **The floor arrives as a new `ClassDials` field.** Cheapest, moves the
+   fingerprint on its own, and makes the floor a dial that can be swept — which
+   decision 2 requires of an assumed quantity anyway.
+2. **A `RULES_VERSION` constant from `pitstop.py` joins the fingerprint
+   payload.** More general: it covers the next logic change too, and `caution.py`
+   has the same exposure.
+
+**Doing amendment 14 in the same pass as the 00 re-run will mask this**, because
+the re-run moves the fingerprints regardless. The gap would then be
+undiscovered until the next logic change, which would have nothing to move
+alongside it.
+
+---
+
+### Amendment 22 — amendment 16's runtime figure, on real dials
+
+Superseded text: amendment 16 records one race at 0.72 s. That was measured on
+the six-hour stand-in.
+
+Measured on the calibrated dials, driving to the flag: **Daytona 1.69 s** (743
+laps) and **Le Mans 0.89 s** (391 laps); `harness.run_focal` on the same seed is
+2.57 s and 0.84 s. A full roster pass, which the `NullRuns` cache reduces to one
+null plus four arms per seed, costs **5.26 s a seed in IMSA and 2.61 s in WEC** —
+so the two hundred headline races are eighteen minutes and nine minutes.
+
+Three consequences. The comparison page reads 03b's saved rows rather than
+recomputing, because eighteen minutes is not a click. A backwards seek in the
+app costs one race, about 1.7 s at Daytona, which is felt but is the correct
+price for the decision log being the source of truth. And if amendment 16's
+2 h 52 m for 02c was measured on the stand-in, a full pass on real dials is
+materially worse than recorded, which strengthens rather than weakens the case
+for parallelising it — this is flagged rather than asserted, because which dials
+that figure came from is not recorded.
+
+**Separately, a reproducibility fact worth the same status.** Fifteen IMSA
+headline races re-driven under a NumPy 2 stack and compared against
+`imsa_headline_rows.csv`: every integer column identical, float columns
+differing by at most 2.3 × 10⁻¹³ s. The races are stable across the NumPy
+boundary, as `default_rng`'s stability guarantee implies. But **anything that
+compares saved floats for exact equality will fail for reasons unrelated to
+strategy** — compare on the integer columns and use a tolerance on the floats.
+`evaluate.py` should record `numpy.__version__` and `pandas.__version__` in its
+provenance block: every artefact here can prove which dials it was measured
+against, and none can prove which interpreter.
+
+---
+
+### Amendment 23 — the stop-cost floor, as a dial
+
+Superseded text: `pit_caution_discount`'s description, "ASSUMED: share of pit
+cost saved under caution", and `engine._apply_pit`'s application of it to the
+whole stop after the noise was added.
+
+Amendment 14 diagnosed a caution stop costing 12.85 s against a 22.45 s lane
+transit. Measured on the calibrated dials before the fix, the cheapest stop the
+engine could price was 13.47 s at GTP and 11.55 s at HYPERCAR - so the policy
+was not exploiting a rare case, it was taking the price the model offered.
+
+**The fix is a new dial, `pit_transit_caution_discount`, default 0.0, ASSUMED.**
+One number was conflating two claims: that a slow field makes time in the box
+matter less, which is reasonable, and that the drive down the lane is cheaper
+too, which is what put a stop below its own floor. Set the new dial equal to
+the old one and the superseded arithmetic returns exactly, which
+`test_it_is_a_dial_not_a_rewrite` asserts to 1e-12.
+
+It had to be a dial rather than a patch, per amendment 21: `dials_fingerprint`
+hashes parameters only, so a pure logic fix in `pitstop.py` would have changed
+every race in the project while leaving every seed bank, field, card and saved
+table matching perfectly.
+
+Two further changes, both deliberate. The discount moved from `_apply_pit` into
+`stop_cost`, where what a stop costs belongs. And it no longer multiplies the
+*noise*: `_apply_pit` used to scale the total after adding it, so a caution stop
+had a compressed spread. Nobody decided that - it fell out of the order of two
+lines - and a discount on the variance is a different claim from a discount on
+the cost. The floor is clamped after the noise, because `pit_time_std_s` runs
+two to five times its mean in places and a left-tail draw breaches a floor as
+easily as a discount does.
+
+**Consequence for the roster.** IMSA's `caution_gambler` moves from a median pit
+delta of +11.9 s to -140 s: its entire measured advantage since 02c was the
+transit discount. `lap_down` moves from gaining in 4% of races to 39.5%. Every
+roster claim from 02c and 03b is superseded rather than adjusted.
+
+---
+
+### Amendment 24 — the reward is class position
+
+Superseded text: amendment 8's "one lap credited per completed lap", and its
+argument that "class position is derived from laps and then time, which puts
+the proxy nearer the score".
+
+Measured on the calibrated dials, it does not. A car that stops forty extra
+times at Daytona spends 1,072 s more in the pits and loses **zero** laps.
+Isolated by turning one caution mechanism off at a time with the rate held
+fixed: with `caution_close_frac = 0` the refund falls from **70% to 25%**, while
+the caution discount and the pace multiplier change nothing. Compression - a car
+with a gap ahead running shorter caution laps until it closes - hands the time
+back, and the refund tracks the caution rate: 70% at 0.355, 35% at 0.089, 8% at
+0.018.
+
+So the proxy detaches from the score exactly where there is most yellow. The
+IMSA policy took 65 stops against the null's 24.5 and was scored, in laps, as
+having lost nothing, while its class position fell by one and it lost in 52.5%
+of races. In WEC the same excess did cost 9 laps - but 9 laps is 1.30 sd of the
+seed-to-seed spread there and would be 0.27 sd at Daytona.
+
+**The reward is now the score.** Per lap, the class position before minus the
+position after; at the flag, the last credit is taken against
+`classification()`. The per-lap deltas telescope to `start - finish`, and the
+start is fixed by the strategy-independent pace-rank draw, so this differs from
+crediting only the finish by a per-episode constant - the identical argument
+amendment 8 used, now pointing somewhere else.
+
+`RaceState.class_position` is new and shares one sort key, `_running_order`,
+with `class_leader`, `RaceResult.positions` and `classification`. A project
+whose score is a position cannot afford two definitions of it. It wobbles
+mid-race, because `RaceState.cars` holds each car at its own last crossing and a
+car that has just crossed outranks one nine tenths of the way round - the trap
+`wave_eligible` avoids with fractional progress, and avoids because eligibility
+is a fact about the road while this is a fact about the timing screen. The
+wobble cancels in the sum.
+
+**A tenth observation row was required and was not obvious.** The first version
+of this reward shipped with the nine rows unchanged, on the argument that
+`laps_down` and the two gaps determine a position change locally. Measured over
+2,271 IMSA crossings, `laps_down` has sd 0.075 and correlates **0.091** with
+actual class position; the best proxy was `gap_ahead` at 0.52. The value
+function was estimating "how many places will I gain from here" without being
+told where here is, so the baseline reduced no variance and the IMSA action
+distribution after 500,000 steps was 0.15 to 0.25 across all five actions.
+`class_position` is the tenth row, 0.0 leading and 1.0 last.
+
+**A further trap remains open.** A forced extra caution stop gains **+0.89**
+places twenty laps later and loses **0.67** by the flag at Daytona, while at Le
+Mans it is negative at both horizons. `gae_lambda = 0.95` puts essentially all
+credit inside ~20 steps, so the agent is told the truth about the next twenty
+laps and the opposite about the race. Raising it to 1.0 was tried and made
+things worse - with `gamma = 1.0` every step in an episode then receives the
+same advantage, and removing credit localisation while the baseline is blind is
+the worst available combination. This wants revisiting now that position is
+observable, and it wants revisiting under amendment 26.
+
+---
+
+### Amendment 25 — `never_pit` joins the roster
+
+Superseded text: none. `ROSTER`'s five members are all strategies that *do*
+something, and until this pass nothing in the project could distinguish a
+learned policy from one that had learned to take no decisions at all.
+
+A five-seed sweep found all five IMSA policies converging on always staying
+out, letting the engine's out-of-fuel override supply every stop. Scored
+against the roster, that behaviour is indistinguishable from the trained agent:
+
+| | gained | level | lost | median Δpos | median stops |
+|---|---|---|---|---|---|
+| `never_pit` | 0.44 | 0.16 | 0.40 | 0.0 | 24.0 |
+| the trained agent | 0.445 | 0.175 | 0.380 | 0.0 | 24.0 |
+
+`never_pit` is therefore the true null for a learner, distinct from
+`fuel_window`, which is the null for a *strategy*. `fuel_window` answers "did
+this plan beat the standard plan"; `never_pit` answers "did this policy learn
+anything at all". A result that clears the first and not the second is not a
+result, and this pass produced two of them.
+
+It costs one small class in `strategies.py` and would have caught the failure
+four retrains earlier.
+
+---
+
+### Amendment 26 — an agent result is a distribution over training seeds
+
+Superseded text: none, which is the problem. Every agent number this project
+has published - 03b's, and all four produced during the post-04 pass - is a
+single training run at `train_seed = 0`, and nothing said that was insufficient.
+
+Decision 10 already imposes this standard one level down: two hundred paired
+races per strategy, because one race means nothing. A single training run is
+the same mistake one level up. The human strategies are deterministic functions
+of the race, so their 200-seed interval is the whole of their uncertainty; an
+agent row carries that interval **plus** the spread across training seeds.
+
+Measured, that second term dominates in WEC:
+
+```
+gained        s0=0.005  s1=0.450  s2=0.000  s3=0.000  s4=0.000
+median_stops  s0=72.5   s1=38.0   s2=65.0   s3=174.0  s4=194.0
+spread 0.450 against an evaluation interval of 0.030
+```
+
+Fifteen times what two hundred paired races can resolve. **The mid-pass result
+of 0.590 was seed 1 of a distribution reaching zero**, and was reported as the
+project's best finding before this was known.
+
+So: five training seeds minimum, and the agent row reports the range. Zero
+spread is not evidence of stability - IMSA's five seeds were identical to three
+decimals, and amendment 25 explains why. **`median_stops` is reported beside
+`gained` wherever an agent appears**, because in WEC five runs scoring near zero
+ranged from 38 to 194 stops and `gained` alone cannot see that.
+
+`scripts/seed_sweep.py` runs it; `scripts/collect_seed_spread.py` reports the
+comparison and states which of the two terms dominates.
+
+---
+
+### Amendment 27 — amendment 14, closed
+
+Amendment 14 recorded the agent's realised stop cost of 12.85 s against a
+22.45 s lane transit, called it reward hacking with a checkable mechanism, and
+marked itself provisional until `stop_cost` was given a floor and both policies
+retrained.
+
+**The diagnosis held and the fix worked.** Amendment 23 is the floor; no stop
+in either series can now be priced below its lane, under any combination of
+fuel, tyres, caution state and noise draw, which `test_stop_cost_floor.py`
+asserts across every class.
+
+**The agent result it was provisional on is withdrawn**, for an unrelated
+reason: amendment 26. Both post-fix figures - 0.445 for IMSA and 0.590 for WEC -
+rest on single training runs, and the first is `never_pit` under another name.
+
+Amendment 14's framing survives intact and is worth preserving for the
+write-up: the policy behaved correctly against a cost function that was wrong.
+That has now happened four times over, in four different ways, and the pattern
+rather than any single instance is the result.
 
 ---
 

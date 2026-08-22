@@ -55,7 +55,7 @@ import pandas as pd
 
 from .assets import BackgroundField, SeedBank, dials_fingerprint
 from .engine import RaceEngine, run_race
-from .params import RaceConfig, scale_dials
+from .params import RaceConfig, scale_dials, set_dials
 from .strategies import ROSTER
 
 # Decision 8's slot, read as 02b's decision A: fifth-fastest drawn base pace
@@ -147,6 +147,71 @@ class NullRuns:
 
 
 # ----------------------------------------------------------------------
+# Running the races, serially or in a pool
+# ----------------------------------------------------------------------
+# **The rows are built in exactly one place.** These two functions return the
+# same thing - one entry per seed, holding the focal car and every arm's scored
+# race - and `compare_roster` turns that into rows afterwards. A parallel path
+# that built its own rows would be a second comparison, which is decision 6's
+# failure, and the delta signs are the single easiest thing in this project to
+# get quietly backwards.
+def _run_seed_serial(config, seeds, field, roster, class_name, pace_rank,
+                     null_name, nulls):
+    out = []
+    for seed in seeds:
+        focal = focal_car(config, seed, class_name, pace_rank)
+        null = nulls.get(config, seed, focal, field, roster[null_name])
+        runs = {null_name: null}
+        for name, strategy in roster.items():
+            if name != null_name:
+                runs[name] = run_focal(config, seed, focal, strategy(), field)
+        out.append((seed, focal, runs))
+    return out
+
+
+def _one_seed(payload):
+    """One seed's whole roster, in a worker process.
+
+    The roster arrives as **names** rather than callables. `ROSTER`'s values
+    are classes and would pickle, but `agent_roster` hands over a closure round
+    a live onnxruntime session and that would not - so the parallel path takes
+    names, rebuilds from `ROSTER` here, and `compare_roster` refuses to use it
+    for anything `ROSTER` does not contain.
+
+    A fresh `NullRuns` per worker is correct rather than wasteful: the cache
+    exists to share the null across a seed's arms, and every arm of a seed is
+    in the same call.
+    """
+    config, seed, field, names, class_name, pace_rank, null_name = payload
+    focal = focal_car(config, seed, class_name, pace_rank)
+    null = run_focal(config, seed, focal, ROSTER[null_name](), field)
+    runs = {null_name: null}
+    for name in names:
+        if name != null_name:
+            runs[name] = run_focal(config, seed, focal, ROSTER[name](), field)
+    return seed, focal, runs
+
+
+def _run_seeds_parallel(config, seeds, field, roster, class_name, pace_rank,
+                        null_name, n_workers):
+    """The same races, across processes, in seed order.
+
+    Results are reassembled in the order `seeds` was given rather than the
+    order they complete, so the frame does not depend on scheduling. Each race
+    is drawn entirely from its own seed, so nothing crosses between workers and
+    the output is identical to the serial path by construction - which the
+    gate at the foot of this module asserts rather than assumes.
+    """
+    from concurrent.futures import ProcessPoolExecutor
+
+    names = tuple(roster)
+    payloads = [(config, seed, field, names, class_name, pace_rank, null_name)
+                for seed in seeds]
+    with ProcessPoolExecutor(max_workers=n_workers) as pool:
+        return list(pool.map(_one_seed, payloads, chunksize=1))
+
+
+# ----------------------------------------------------------------------
 # The comparison
 # ----------------------------------------------------------------------
 @dataclass
@@ -171,7 +236,8 @@ def compare_roster(config: RaceConfig, seeds: list[int], field: BackgroundField,
                    class_name: str | None = None,
                    pace_rank: int = DEFAULT_PACE_RANK,
                    null_name: str = "fuel_window",
-                   nulls: NullRuns | None = None) -> Comparison:
+                   nulls: NullRuns | None = None,
+                   n_workers: int = 1) -> Comparison:
     """Score every roster strategy against the null, race by race.
 
     One row per (strategy, seed). The delta columns are signed so that
@@ -179,6 +245,17 @@ def compare_roster(config: RaceConfig, seeds: list[int], field: BackgroundField,
     means a place gained, which is a *lower* `class_pos`, and getting that
     sign wrong is the single easiest way to publish a table that says the
     opposite of what happened.
+
+    `n_workers` above 1 runs the seeds across processes. It changes how long
+    this takes and nothing else: the races are drawn entirely from their own
+    seeds, the results are reassembled in the order `seeds` was given, and the
+    rows below are built by the same code either way.
+
+    Refused rather than silently serialised when the roster holds anything
+    `ROSTER` does not - which today means the agent, whose strategy closes over
+    an onnxruntime session that cannot cross a process boundary. A parallel
+    request that quietly ran serially would misreport the runtime, and a
+    runtime is what somebody is measuring when they ask for it.
     """
     roster = roster or ROSTER
     if null_name not in roster:
@@ -186,14 +263,24 @@ def compare_roster(config: RaceConfig, seeds: list[int], field: BackgroundField,
     nulls = nulls if nulls is not None else NullRuns()
     class_name = class_name or headline_class(config)
 
-    rows = []
-    for seed in seeds:
-        focal = focal_car(config, seed, class_name, pace_rank)
-        null = nulls.get(config, seed, focal, field, roster[null_name])
+    if n_workers > 1:
+        outside = [n for n in roster if n not in ROSTER]
+        if outside:
+            raise ValueError(
+                f"cannot run {outside} across processes: the parallel path "
+                f"rebuilds strategies from ROSTER by name, and these are not "
+                f"in it. Run this roster with n_workers=1.")
+        races = _run_seeds_parallel(config, seeds, field, roster, class_name,
+                                    pace_rank, null_name, n_workers)
+    else:
+        races = _run_seed_serial(config, seeds, field, roster, class_name,
+                                 pace_rank, null_name, nulls)
 
-        for name, strategy in roster.items():
-            run = (null if name == null_name
-                   else run_focal(config, seed, focal, strategy(), field))
+    rows = []
+    for seed, focal, runs in races:
+        null = runs[null_name]
+        for name in roster:
+            run = runs[name]
             rows.append({
                 "series": config.series_code,
                 "race": config.name,
@@ -219,6 +306,7 @@ def compare_roster(config: RaceConfig, seeds: list[int], field: BackgroundField,
             "pace_rank": pace_rank,
             "null": null_name,
             "background": field.provenance.get("uniform_strategy"),
+            "n_workers": n_workers,
         },
     )
 
@@ -259,7 +347,8 @@ def summarise(rows: pd.DataFrame) -> pd.DataFrame:
 # Sweeps
 # ----------------------------------------------------------------------
 def sweep_dial(config: RaceConfig, seeds: list[int], field: BackgroundField,
-               dial: str, multipliers: tuple[float, ...],
+               dial: str, multipliers: tuple[float, ...] | None = None,
+               *, values: tuple[float, ...] | None = None,
                **kw) -> pd.DataFrame:
     """Decision 11's one-at-a-time sweep, on the sweep bank.
 
@@ -268,17 +357,37 @@ def sweep_dial(config: RaceConfig, seeds: list[int], field: BackgroundField,
     how a claim moves as a dial moves, and the cleanest version of that
     compares against the same races the claim was made on.
 
-    Each point gets its own `NullRuns`, because scaling a dial changes the
+    Each point gets its own `NullRuns`, because moving a dial changes the
     race and therefore changes the null. Sharing one cache across points
     would serve every point the baseline from the first, which would look
     like a beautifully smooth response curve.
+
+    **`multipliers` or `values`, exactly one.** Multiplying is the default and
+    is what every published sweep used, because a multiplier is comparable
+    across classes whose values differ. It cannot move a dial that sits at
+    zero, though, and `pit_transit_caution_discount` does - so a sweep of that
+    dial passes `values` and goes through `set_dials`. Both paths write both
+    columns: `value` is the dial as the race saw it, and `multiplier` is empty
+    on the value path rather than back-computed, because dividing by a zero
+    default would invent a number.
     """
+    if (multipliers is None) == (values is None):
+        raise ValueError("pass multipliers or values, and not both: a sweep "
+                         "point is either a factor on what the dial is or a "
+                         "number to put there, and the two are different "
+                         "questions about the same dial")
+
+    points = multipliers if multipliers is not None else values
     frames = []
-    for m in multipliers:
-        scaled = scale_dials(config, **{dial: m})
-        comparison = compare_roster(scaled, seeds, field, nulls=NullRuns(), **kw)
+    for point in points:
+        if multipliers is not None:
+            moved = scale_dials(config, **{dial: point})
+        else:
+            moved = set_dials(config, **{dial: point})
+        comparison = compare_roster(moved, seeds, field, nulls=NullRuns(), **kw)
         out = comparison.summarise()
-        out.insert(0, "multiplier", m)
+        out.insert(0, "value", getattr(moved.classes[0], dial))
+        out.insert(0, "multiplier", point if multipliers is not None else None)
         out.insert(0, "dial", dial)
         frames.append(out)
     return pd.concat(frames, ignore_index=True)
@@ -287,17 +396,27 @@ def sweep_dial(config: RaceConfig, seeds: list[int], field: BackgroundField,
 def sweep_grid(config: RaceConfig, seeds: list[int], field: BackgroundField,
                dial_a: str, values_a: tuple[float, ...],
                dial_b: str, values_b: tuple[float, ...],
-               **kw) -> pd.DataFrame:
+               *, how: str = "scale", **kw) -> pd.DataFrame:
     """Decision 11's 2-D grid, `pit_caution_discount` x caution rate by default.
 
     Those two interact by construction - how often a caution arrives and how
     much a caution stop saves - so a pair of one-at-a-time sweeps cannot say
     what the grid says.
+
+    `how="scale"` reads `values_a` and `values_b` as multipliers, which is what
+    they have always been and what the published grid used. `how="set"` reads
+    them as the values themselves, for the same reason `sweep_dial` gained the
+    option: a multiplier cannot move a dial that sits at zero. The axis columns
+    hold whichever was passed, so a grid says what it swept.
     """
+    if how not in ("scale", "set"):
+        raise ValueError(f"how must be 'scale' or 'set', not {how!r}")
+    move = scale_dials if how == "scale" else set_dials
+
     frames = []
     for a in values_a:
         for b in values_b:
-            scaled = scale_dials(config, **{dial_a: a, dial_b: b})
+            scaled = move(config, **{dial_a: a, dial_b: b})
             out = compare_roster(scaled, seeds, field, nulls=NullRuns(),
                                  **kw).summarise()
             out.insert(0, dial_b, b)

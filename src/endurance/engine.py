@@ -44,7 +44,7 @@ from .caution import (
     wave_eligible,
     wave_lap_time,
 )
-from .pitstop import PitRules, lane_status, stop_cost
+from .pitstop import PitRules, lane_status, stop_cost, transit_s
 
 
 # ----------------------------------------------------------------------
@@ -281,6 +281,17 @@ class PitDecision:
     reason: str = ""
 
 
+def _running_order(car: "CarState") -> tuple[int, float]:
+    """The one sort key position is derived from, everywhere.
+
+    Most laps completed, and among equals whoever got there soonest. Written
+    once because four things read it - the class leader, the focal car's live
+    position, `RaceResult.positions` and `classification` - and a project whose
+    score is a position cannot afford two definitions of it.
+    """
+    return (-car.laps_done, car.race_time_s)
+
+
 @dataclass
 class RaceState:
     """The read-only view of the race a strategy gets to see."""
@@ -304,7 +315,42 @@ class RaceState:
         in_class = [c for c in self.cars.values() if c.class_name == class_name]
         if not in_class:
             return None
-        return min(in_class, key=lambda c: (-c.laps_done, c.race_time_s))
+        return min(in_class, key=_running_order)
+
+    def class_position(self, car: CarState) -> int:
+        """Where this car stands in its class right now, one-based.
+
+        The same rule as `class_leader`, `RaceResult.positions` and
+        `classification` - most laps, then earliest - and it shares their
+        sort key rather than restating it, so the four cannot drift apart.
+        `class_leader` is this function's rank one, kept separate only
+        because it is called every lap and a linear scan beats a sort.
+
+        Added at the position reward. Nothing before it needed the focal
+        car's own standing mid-race: `run_focal` scores at the flag and
+        deliberately avoids `positions`, which sorts the whole field once
+        per lap record. This sorts one class once per focal crossing, which
+        is eleven to twenty-five cars a few hundred times a race.
+
+        **Mid-race this wobbles, and that is the rule rather than a defect.**
+        Cars in `self.cars` are each at their own last crossing, so a car that
+        has just completed a lap outranks one nine tenths of the way round it -
+        the trap `caution.wave_eligible` avoids by using fractional progress,
+        and it avoids it because eligibility is a fact about the road while
+        this is a fact about the timing screen. A screen ranks by laps
+        completed and does show a place changing hands on a crossing. Two
+        consequences worth knowing: a reward built on the *change* in this
+        wobbles by a place either way lap to lap, and it sums exactly to the
+        finishing position anyway, because the intermediate terms cancel and
+        the final one is taken from `classification`.
+        """
+        in_class = sorted((c for c in self.cars.values()
+                           if c.class_name == car.class_name),
+                          key=_running_order)
+        for i, other in enumerate(in_class, start=1):
+            if other.car_id == car.car_id:
+                return i
+        raise KeyError(f"{car.car_id} is not in class {car.class_name!r}")
 
     def laps_down(self, car: CarState) -> int:
         """How many laps this car is behind its class leader, never negative.
@@ -756,8 +802,11 @@ class RaceEngine:
         cls = self.config.class_by_name(car.class_name)
         fuel_added = max(float(np.clip(decision.refuel_to, 0.0, 1.0)) - car.fuel, 0.0)
         change_tyres = bool(decision.change_tyres or forced_reason == "tyres done")
+        under_caution = self.cautions.is_caution(t)
+        legacy = self.compat.legacy_pit
         mean = stop_cost(cls, self.rules, fuel_added, change_tyres,
-                         legacy=self.compat.legacy_pit)
+                         under_caution=under_caution and not legacy,
+                         legacy=legacy)
 
         # Indexed by this car's stop number, so a strategy that stops once
         # more does not reprice anybody else's stops.
@@ -766,9 +815,20 @@ class RaceEngine:
         else:
             z = self._pit_noise[car.car_id][car.n_stops]
             cost = mean + cls.pit_time_std_s * z
-        if self.cautions.is_caution(t):
-            cost *= (1.0 - cls.pit_caution_discount)
-        cost = max(cost, 0.0)
+
+        if legacy:
+            # 01's engine: one flat mean, discounted whole. Left exactly as it
+            # was - a compat flag that quietly acquired amendment 14 would stop
+            # being a way of showing what 02a changed.
+            if under_caution:
+                cost *= (1.0 - cls.pit_caution_discount)
+            cost = max(cost, 0.0)
+        else:
+            # Amendment 14's floor, applied after the noise. A discount cannot
+            # put a stop below the lane transit, and neither can a draw from
+            # the left tail: `pit_time_std_s` is two to five times its mean in
+            # places, so that tail is not hypothetical.
+            cost = max(cost, transit_s(cls))
 
         car.fuel = float(np.clip(decision.refuel_to, 0.0, 1.0))
         if change_tyres:
@@ -978,6 +1038,8 @@ class RaceResult:
             laps_done[car_id] = lap_no
             last_t[car_id] = t
 
+            # `_running_order`'s rule, on the tallies this loop keeps rather
+            # than on `CarState`. Same key; different thing holding it.
             ranked = sorted(laps_done, key=lambda c: (-laps_done[c], last_t[c]))
             out_overall.append(ranked.index(car_id) + 1)
 

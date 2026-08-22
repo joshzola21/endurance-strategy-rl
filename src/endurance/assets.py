@@ -39,6 +39,13 @@ from pathlib import Path
 
 import numpy as np
 
+from .caution import RULES_VERSION as CAUTION_RULES_VERSION
+from .pitstop import RULES_VERSION as PITSTOP_RULES_VERSION
+
+# Imported at the top rather than inside the function, unlike `strategies`
+# below: `pitstop` and `caution` import nothing from this package, so there is
+# no cycle to avoid, and a fingerprint that could fail at call time rather
+# than at import time is a tripwire with a soft spot in it.
 
 HEADLINE_N = 200
 SWEEP_N = 50
@@ -109,6 +116,101 @@ def dials_fingerprint(config) -> str:
     return hashlib.sha256(payload).hexdigest()[:16]
 
 
+def rules_fingerprint() -> str:
+    """A short hash of the rule logic the dials are run through.
+
+    Amendment 21's gap, closed beside `dials_fingerprint` rather than inside
+    it. `dials_fingerprint` hashes `config.to_dict()`, which is parameters
+    only - so `stop_cost` could be rewritten, every race in the project would
+    change, and every bank, field, card and saved table would still match. The
+    two fingerprints answer different questions and are kept apart so that a
+    mismatch says which one moved.
+
+    A property of the code and not of any config, so it takes no argument.
+
+    **What this does not cover.** `engine.py`'s own arithmetic, which includes
+    the floor clamp in `_apply_pit`. Putting the engine in here would mean
+    bumping a version on every edit to the largest and most frequently touched
+    module in the project, and a version nobody bumps honestly is worse than
+    an absent one. The rules layers are covered; the engine is not, and that
+    is stated rather than discovered.
+    """
+    payload = json.dumps({"caution": CAUTION_RULES_VERSION,
+                          "pitstop": PITSTOP_RULES_VERSION},
+                         sort_keys=True).encode()
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def rules_mismatch(recorded: str | None, what: str = "this artefact") -> str | None:
+    """The message to raise or print, or `None` if there is nothing to say.
+
+    Checked **only where present**, which is deliberate. Every artefact
+    currently on disk was frozen before this existed and carries no rules
+    fingerprint, so a strict check would refuse the whole project on its first
+    run. `None` in means "this artefact predates the check", and that is
+    reported on the methods page rather than treated as a pass.
+    """
+    if recorded is None:
+        return None
+    current = rules_fingerprint()
+    if recorded == current:
+        return None
+    return (f"{what} was built against rule logic {recorded!r} and this tree "
+            f"is {current!r}. The dials may well match - they are hashed "
+            f"separately - but `pitstop.py` or `caution.py` has changed since, "
+            f"so the same seed is a different race.")
+
+
+def dials_source(config) -> str:
+    """Where these dials came from, derived rather than typed.
+
+    The literal `"STAND-IN, not calibrated"` was written into `train.py`,
+    `evaluate.py` and `sweep_pit_transit.py` when the dials genuinely were a
+    six-hour invented race. It stopped being true when 00's re-run landed, and
+    it went on being stamped onto policy cards and evaluation provenance for
+    four more generations - by then reading `"STAND-IN, calibrated"`, which is
+    not a description of anything.
+
+    So it is computed from the config, which knows. A string that has been
+    wrong in three places at once should exist in one.
+    """
+    if not config.classes:
+        return "unknown: this config has no classes"
+    source = config.classes[0].source_event
+    if not source:
+        return "unknown: no source_event on the dials"
+    if config.classes[0].n_laps_observed:
+        return (f"calibrated from {source}, "
+                f"{config.classes[0].n_laps_observed} laps observed")
+    return f"calibrated from {source}"
+
+
+def dials_source(config) -> str:
+    """Where these dials came from, read off the config rather than typed.
+
+    Four files wrote this as a string literal. It said `"STAND-IN, not
+    calibrated"` for four generations after 00's re-run made it false, was
+    stamped onto every policy card and every evaluation provenance file in
+    that time, and was then changed to `"STAND-IN, calibrated"`, which
+    describes nothing. A card that lies about its dials is worse than a card
+    with no note on them.
+
+    `source_event` is written by `calibrate.build_race_config` and names the
+    session, so this cannot drift from the dials it describes: they move
+    together or not at all.
+
+    The pooled case is reported rather than smoothed over. Several classes
+    naming several events is what a scoping fault looks like from here, and 00
+    spent a whole re-run on one.
+    """
+    events = sorted({c.source_event for c in config.classes if c.source_event})
+    if not events:
+        return "unknown - this config records no source event"
+    if len(events) > 1:
+        return "POOLED across " + ", ".join(events)
+    return f"calibrated from {events[0]}"
+
+
 def draw_seed_bank(config, draw_seed: int = 20260806,
                    headline_n: int = HEADLINE_N, sweep_n: int = SWEEP_N,
                    held_out_n: int = HELD_OUT_N) -> SeedBank:
@@ -135,6 +237,7 @@ def draw_seed_bank(config, draw_seed: int = 20260806,
             "race": config.name,
             "duration_s": config.duration_s,
             "dials_fingerprint": dials_fingerprint(config),
+            "rules_fingerprint": rules_fingerprint(),
             "sweep_is_prefix_of_headline": True,
             "held_out_disjoint": True,
         },
@@ -214,6 +317,7 @@ def freeze_background(config, strategy: str = "fuel_window") -> BackgroundField:
             "series_code": config.series_code,
             "uniform_strategy": strategy,
             "dials_fingerprint": dials_fingerprint(config),
+            "rules_fingerprint": rules_fingerprint(),
             "note": ("assumed parameter per decision 2; belongs in "
                      "ASSUMED_FIELDS and gets swept"),
         },

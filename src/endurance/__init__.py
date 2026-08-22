@@ -29,7 +29,7 @@ Typical use:
     result.classification()
 """
 
-from .params import ClassDials, RaceConfig, scale_dials
+from .params import ClassDials, RaceConfig, scale_dials, set_dials
 from .pitstop import PitRules, lane_status, stop_cost
 from .engine import (
     CarState,
@@ -47,6 +47,7 @@ from .strategies import (
     CautionGambler,
     FixedLapStint,
     LapDownDefender,
+    NeverPit,
     OpportunistUnderCaution,
     RunToFuelWindow,
     SplashAndDashPlanner,
@@ -76,7 +77,7 @@ from .gym_env import (
 )
 
 __all__ = [
-    "ClassDials", "RaceConfig", "scale_dials",
+    "ClassDials", "RaceConfig", "scale_dials", "set_dials",
     "PitRules", "lane_status", "stop_cost",
     "CarState", "CautionTimeline", "Compat", "PitDecision",
     "RaceEngine", "RaceResult", "RaceState", "run_race",
@@ -85,6 +86,8 @@ __all__ = [
      # 02c: the roster
     "ROSTER", "CautionGambler", "TrackPositionDefender",
     "SplashAndDashPlanner", "LapDownDefender",
+    # amendment 25: the null for a learner, not a plan
+    "NeverPit",
     # 02c: the comparison
     "Comparison", "NullRuns", "compare_roster", "summarise",
     "focal_car", "headline_class", "null_is_the_null",

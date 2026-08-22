@@ -6,7 +6,10 @@ feature so much as a missing strategy: splash-and-dash is unimplementable
 until a stop has a shape, and the caution gambler is only gambling if the
 lane can be shut when it arrives.
 
-Two things live here, and only two. Following decision 4/7, this encodes
+Three things live here as of amendment 14 - the shape of a stop, the lane
+status, and **what a caution does to the price**, which used to be a line in
+`engine._apply_pit` and is a statement about pit regulations rather than about
+the race loop. Following decision 4/7, this encodes
 just the rules that change the shape of a stop - the fixed part, the refuel
 duration, and whether tyres may be worked on while fuel goes in - plus the
 lane-status rule the blueprint adds on top. Driver-time regulations stay
@@ -35,6 +38,20 @@ with different constants.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+
+# Amendment 21, closed as far as it can be closed here. `dials_fingerprint`
+# hashes parameters only, so a change to the *logic* in this module changes
+# every race in the project while leaving every seed bank, field, card and
+# saved table matching perfectly - the tripwire that has caught four artefact
+# collisions would report nothing. This number is what `assets.rules_fingerprint`
+# hashes, and it is recorded beside the dials fingerprint from now on.
+#
+# **Bump it when the arithmetic changes, not when a comment does.** History:
+#   1  02a - the layer as first written; the discount lived in `_apply_pit`
+#   2  amendment 23 - the discount moved here and split in two, and the lane
+#      transit became a floor a stop cannot be priced below
+RULES_VERSION = 2
 
 
 # Classes are released from a closed pit lane in category order, prototypes
@@ -107,12 +124,40 @@ class PitRules:
         return 2
 
 
+def transit_s(cls_dials) -> float:
+    """The floor: driving the length of the pit lane, with nobody touching the car.
+
+    Amendment 14's finding was that a stop came out at 12.85 s against a
+    transit of 22.45 s. **A stop cannot cost less than this**, whatever the
+    caution discount and whatever the noise draw, and `_apply_pit` clamps to it
+    after noise rather than before - a negative tail on the noise can violate a
+    floor just as easily as a discount can.
+    """
+    return cls_dials.pit_time_mean_s * cls_dials.pit_transit_frac
+
+
 def stop_cost(cls_dials, rules: PitRules, fuel_added: float,
-              change_tyres: bool, *, legacy: bool = False) -> float:
-    """The mean cost of one stop, before noise and before any caution discount.
+              change_tyres: bool, *, under_caution: bool = False,
+              legacy: bool = False) -> float:
+    """The mean cost of one stop, before noise.
 
     `fuel_added` is in normalised tank units, so a full tank is 1.0 and a
     splash is whatever fraction the strategy asked for.
+
+    **The caution discount is applied here as of amendment 14**, and applied to
+    the transit and the service separately, because they are separate claims
+    about what a caution is worth. It used to be applied by `_apply_pit` to the
+    whole stop including the transit, which is how a caution stop came to cost
+    less than driving down the lane. Moving it here is not tidiness: the
+    discount changes what a stop costs, and what a stop costs is what this
+    module is.
+
+    One consequence, deliberate and worth stating. The discount used to
+    multiply the *noise* too, because `_apply_pit` scaled the total after
+    adding it. It no longer does: a caution stop now has the same spread as a
+    green one. Nobody decided the old behaviour - it was a side effect of the
+    order of two lines - and a discount on the variance is a different claim
+    from a discount on the cost.
     """
     mean = cls_dials.pit_time_mean_s
     if legacy:
@@ -132,6 +177,11 @@ def stop_cost(cls_dials, rules: PitRules, fuel_added: float,
 
     refuel_s = full_refuel_s * max(fuel_added, 0.0)
     service = max(refuel_s, tyre_s) if rules.tyres_during_refuel else refuel_s + tyre_s
+
+    if under_caution:
+        transit *= 1.0 - cls_dials.pit_transit_caution_discount
+        service *= 1.0 - cls_dials.pit_caution_discount
+
     return transit + service
 
 

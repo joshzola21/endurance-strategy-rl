@@ -3228,47 +3228,37 @@ for series_code in SERIES:
     print(f"=== {series_code} / headline ===")
     show(table(series_code, "headline")[SHOW])'''))
 
-    cells.append(md("""### Against 02c's published table
+    cells.append(md("""### 02c's published table is superseded, not comparable
 
-02c's headline numbers were produced on its own reconstruction of the wave
-fix. Where the two disagree by more than the seed set can explain, the
-engine is the difference and **02c's table must not be quoted beside
-anything in this notebook**.
+This section used to hold 02c's headline numbers as literals and check
+today's table against them. That check has been removed rather than
+updated, because it can no longer say anything.
 
-The comparison is against the bootstrap interval rather than by eye, which
-is the rule 02c wrote after publishing a two-place finding on a statistic
-whose per-seed spread ran to three places and then reversing it at two
-hundred seeds."""))
+Amendment 23 fixed a caution discount that was being applied to the pit
+lane transit as well as to the service, which put a caution stop below the
+cost of simply driving down the lane. Every roster number moved: the IMSA
+caution gambler's median pit delta went from +11.9 s to -140 s, and its
+entire measured advantage since 02c was that discount. **Every roster claim
+from 02c and 03b is superseded rather than adjusted.**
 
-    cells.append(code('''PUBLISHED_02C = pd.DataFrame([
-    ("imsa", "caution_gambler", 0.500, 0.210),
-    ("imsa", "track_position",  0.370, 0.340),
-    ("imsa", "splash_and_dash", 0.345, 0.090),
-    ("imsa", "lap_down",        0.030, 0.030),
-    ("wec",  "caution_gambler", 0.440, 0.260),
-    ("wec",  "track_position",  0.370, 0.395),
-    ("wec",  "splash_and_dash", 0.535, 0.080),
-    ("wec",  "lap_down",        0.075, 0.085),
-], columns=["series", "strategy", "gained_02c", "lost_02c"])
+So a comparison against those literals could only ever report a
+disagreement that is already known, on a race the engine no longer runs -
+and a literal nobody can regenerate is the thing that check existed to
+catch. What is checked instead, below, is that this notebook reports the
+same numbers as the tables on disk, which is a question with an answer."""))
 
-now = pd.concat([table(s, "headline").assign(series=s) for s in SERIES],
-                ignore_index=True)
-check = PUBLISHED_02C.merge(
-    now[["series", "strategy", "gained", "gained_lo", "gained_hi"]],
-    on=["series", "strategy"], how="left")
-check["explained_by_seeds"] = ((check["gained_02c"] >= check["gained_lo"])
-                               & (check["gained_02c"] <= check["gained_hi"]))
-show(check)
-
-beyond = check[~check["explained_by_seeds"]]
-if len(beyond):
-    print("Beyond what the seed set explains:")
-    for r in beyond.itertuples():
-        print(f"  {r.series} {r.strategy}: 02c published {r.gained_02c:.3f}, "
-              f"here {r.gained:.3f} with interval "
-              f"[{r.gained_lo:.3f}, {r.gained_hi:.3f}]")
-else:
-    print("Every difference from 02c sits inside the interval.")'''))
+    cells.append(code('''# The notebook and the saved tables must agree. Read rather than
+# restated: a literal here is a number that goes stale the next time
+# `scripts/evaluate.py` runs, which is how the block this replaces came to
+# be checking a superseded engine.
+for series_code in SERIES:
+    on_disk = table(series_code, "headline")
+    print(f"{series_code}: {len(on_disk)} strategies, "
+          f"{int(on_disk['n_seeds'].iloc[0])} seeds, from "
+          f"{EVAL / f'{series_code}_headline_summary.csv'}")
+    if "never_pit" not in set(on_disk["strategy"]):
+        print("  this table predates never_pit and cannot answer whether a "
+              "policy has learned anything; re-run scripts/evaluate.py")'''))
 
     # ------------------------------------------------------------------
     cells.append(md("""## Part 3 - The floor, and the ceiling that is missing
@@ -3337,7 +3327,11 @@ on an empty tank is overridden and scored on that."""))
     cells.append(code('''def learning_curve(series_code: str):
     """Episode returns from the Monitor logs, or nothing if training has not run."""
     monitor = POLICIES / f"{series_code}_monitor"
-    files = sorted(monitor.glob("*.monitor.csv")) if monitor.exists() else []
+    # `[0-9][0-9].monitor.csv` rather than `*.monitor.csv`. That folder holds
+    # two naming generations - `00.monitor.csv` from the current runs and
+    # `imsa_00.monitor.csv` from an earlier one - and a glob that takes both
+    # draws a learning curve out of two different training runs pooled.
+    files = sorted(monitor.glob("[0-9][0-9].monitor.csv")) if monitor.exists() else []
     if not files:
         return None
     frames = [pd.read_csv(f, skiprows=1).assign(worker=f.stem) for f in files]

@@ -1,19 +1,19 @@
 {
   "series_code": "imsa",
   "algorithm": "MaskablePPO",
-  "dials_fingerprint": "76bac232842e2d4f",
+  "dials_fingerprint": "54de878a6d26afbf",
   "bank_fingerprint": "d9b110e4014ad7f4",
   "train_seed": 0,
   "total_timesteps": 500000,
   "n_envs": 8,
   "checkpoint": "imsa_maskable_ppo.zip",
   "onnx": "imsa_maskable_ppo.onnx",
-  "checkpoint_sha256": "cf6afdfa5a1e044f",
-  "onnx_sha256": "b422b4e7765089f3",
-  "trained_at": "2026-08-10T16:16:23+00:00",
+  "checkpoint_sha256": "4cd138b74dbcb56c",
+  "onnx_sha256": "388cbb10e290a60b",
+  "trained_at": "2026-08-21T23:52:50+00:00",
   "notes": {
     "race": "Daytona 24 2026",
-    "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
+    "dials_source": "calibrated from Daytona 2026 (imsa session 682)",
     "trained_on": "headline bank only; held-out refused by the env",
     "hyperparameters": {
       "n_steps": 512,
@@ -28,6 +28,6 @@
       64
     ],
     "mask": "applied in training; PolicyStrategy carries none",
-    "reward": "one lap credited per completed lap"
+    "reward": "places gained in class, credited as they change"
   }
 }

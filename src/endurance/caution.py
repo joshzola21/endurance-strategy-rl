@@ -46,6 +46,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+# The same exposure `pitstop.py` carries, and the reason amendment 21 named
+# this module first: compression, wave-arounds and the queue arithmetic below
+# are all logic, and none of it is in `config.to_dict()`. A change here moves
+# every race and no fingerprint. Hashed by `assets.rules_fingerprint`.
+#
+# **Bump it when the arithmetic changes, not when a comment does.** History:
+#   1  02a - compression, wave-arounds and the queue, as first written
+RULES_VERSION = 1
+
+
 @dataclass(frozen=True)
 class CautionRules:
     """How many wave-arounds a series runs, and when.

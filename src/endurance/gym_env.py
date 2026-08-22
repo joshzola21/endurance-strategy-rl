@@ -41,7 +41,8 @@ STAY, FULL_TYRES, FULL_KEEP, FLAG_TYRES, FLAG_KEEP = range(5)
 N_ACTIONS = 5
 
 OBS_ROWS = ("race_progress", "fuel", "tyre_age", "gap_ahead", "gap_behind",
-            "under_caution", "stint_laps", "laps_down", "pit_lane_open")
+            "under_caution", "stint_laps", "laps_down", "pit_lane_open",
+            "class_position")
 N_OBS = len(OBS_ROWS)
 
 STINT_SCALE = 40.0        # laps, per the blueprint's observation table
@@ -51,8 +52,9 @@ LAPS_DOWN_SCALE = 3.0
 # `train.py` records this on every policy card. At 03b the card carried a
 # string literal instead, and it would have gone on claiming the superseded
 # reward after this amendment landed - a provenance file that lies is worse
-# than one that is absent, because nobody checks it.
-REWARD = "one lap credited per completed lap"
+# than one that is absent, because nobody checks it. Amended twice now, which
+# is the argument for the constant.
+REWARD = "places gained in class, credited as they change"
 
 
 # ----------------------------------------------------------------------
@@ -73,14 +75,32 @@ def gap_scale_s(cls) -> float:
 
 
 def observe(car: CarState, state: RaceState) -> np.ndarray:
-    """The nine rows, every one of them read from the engine.
+    """The ten rows, every one of them read from the engine.
 
     `pit_lane_open` is the ninth, on 02c's evidence: a gambler that cannot
-    see the lane is not gambling. `wave_eligible` was weighed as a tenth and
-    left out, because under current compression the situation it describes
-    almost never arises - revisit if 00's re-run finds the field closing too
-    hard. A `None` gap maps to 1.0, where the clip sends a very large one
-    too: both say the same thing, which is that nobody is there.
+    see the lane is not gambling. A `None` gap maps to 1.0, where the clip
+    sends a very large one too: both say the same thing, which is that nobody
+    is there.
+
+    `class_position` is the tenth, added with the position reward and for the
+    same reason. **The reward is a change in class position and nothing in the
+    first nine rows tracked it.** Measured over 2,271 IMSA crossings,
+    `laps_down` - the row that was supposed to carry position - has a standard
+    deviation of 0.075 and correlates 0.091 with the car's actual class
+    position; it is clipped at three laps and a front-runner sits at zero all
+    race. The best proxy was `gap_ahead` at 0.52, which is local and clipped
+    at one stop's worth of gap.
+
+    That left the value function estimating "how many places will I gain from
+    here" without being told where here is, so the baseline could not reduce
+    any variance and every advantage was raw return noise. The IMSA policy's
+    action distribution after 500,000 steps was 0.15 to 0.25 across all five
+    actions - flat, with the argmax of the flatness picking a stop on every
+    lap. `wave_eligible` was the tenth row this project expected to need and
+    it is still absent, for the reason recorded at 03a.
+
+    0.0 is leading the class and 1.0 is last, so the row reads the way the
+    reward does: lower is better.
     """
     cls = state.config.class_by_name(car.class_name)
     scale = gap_scale_s(cls)
@@ -98,6 +118,7 @@ def observe(car: CarState, state: RaceState) -> np.ndarray:
         np.clip(car.stint_laps / STINT_SCALE, 0.0, 1.0),
         np.clip(state.laps_down(car) / LAPS_DOWN_SCALE, 0.0, 1.0),
         1.0 if state.pit_lane_open else 0.0,
+        (state.class_position(car) - 1) / max(cls.n_cars - 1, 1),
     ], dtype=np.float32)
 
 
@@ -145,28 +166,57 @@ class EnduranceEnv(gym.Env):
 
     A step is one lap of the focal car, not one of the race, and its length
     in race time varies - a stop or a caution makes a long one. **The reward
-    is one lap, credited.** Nothing else.
+    is the class positions gained on that lap**, credited as they change.
+    Nothing else.
 
-    Amended at 03b; the superseded version was that elapsed time negated and
-    divided by the class green lap. Summed over an episode those elapsed
-    times are the length of the race, and this is a *timed* race, so the
-    return was `duration_s / base_pace_s` whatever the policy did. Measured
-    over 2,664 training episodes the return was -219.85 +- 0.42 while laps
-    ran 167 to 206, correlated -0.11 with them, and 500,000 steps moved it
-    by 0.016%. The IMSA policy converged on pitting during 86% of its laps -
-    twenty laps and four class positions thrown away - and scored the same
-    return as the null, because there was no gradient pointing away from it.
+    Amended twice. The original was elapsed time negated; 03b replaced it
+    with one lap per completed lap; this replaces that. Both superseded
+    versions are kept below, because each was wrong in a way worth knowing.
 
-    Negative time is right for a fixed *distance*, where finishing sooner is
-    winning. At a fixed duration the time is given and laps are what vary,
-    so laps are what is credited. Class position is derived from laps and
-    then time, which puts the proxy nearer the score as well.
+    **Why not negative time.** Summed over an episode those elapsed times are
+    the length of the race, and this is a *timed* race, so the return was
+    `duration_s / base_pace_s` whatever the policy did. Over 2,664 training
+    episodes it was -219.85 +- 0.42 while laps ran 167 to 206, correlated
+    -0.11 with them; 500,000 steps moved it by 0.016%.
 
-    A stop still costs, and needs no term of its own: it makes that step
-    long, consumes race time, and leaves fewer laps to credit. Any affine
-    combination of laps with the old elapsed term is the same policy
-    gradient, because the old term is a constant - so this is the whole
-    change and not a dial.
+    **Why not laps.** Laps looked like the fix, and the argument for it was
+    that class position derives from laps and then time, so laps sit near the
+    score. Measured on the calibrated dials, they do not. A car that stops
+    forty extra times at Daytona spends 1,072 s more in the pits and loses
+    *zero* laps: caution compression hands ~70% of that time back, because a
+    car with a gap ahead runs shorter caution laps until it closes. The
+    refund tracks the caution rate - 70% at 0.355, 35% at 0.089, 8% at 0.018 -
+    so the proxy detaches from the score exactly where there is most yellow.
+    The IMSA policy took 65 stops against the null's 24.5 and was scored, in
+    laps, as having lost nothing at all, while its class position fell by one
+    and it lost in 52.5% of races. In WEC the same 51 extra stops did cost 9
+    laps, but 9 laps is 1.3 sd of the seed-to-seed spread there and would be
+    0.27 sd at Daytona - so the gradient is either absent or drowned.
+
+    **So the reward is the score.** Decision 1 makes class position the
+    primary score; this credits it directly rather than through a proxy that
+    the caution model can sever. Per lap: the position before the lap minus
+    the position after, so gaining a place is +1. At the flag the last credit
+    is taken against `classification()`, which is the number every table in
+    this project reports.
+
+    **It is dense and it is still the terminal score.** The per-lap deltas
+    telescope: summed over an episode they are `start_position - final
+    position`, and the starting position is fixed by the pace-rank draw,
+    which is independent of strategy. So the return differs from crediting
+    only the final position by a per-episode constant, and a constant is the
+    same policy gradient - the identical argument amendment 8 used, now
+    pointing somewhere else.
+
+    A stop needs no term of its own. It costs whatever it costs in places,
+    which is the thing being scored, and where the field hands the time back
+    it genuinely was cheap.
+
+    **The observation needed a tenth row and now has one.** The first version
+    of this reward shipped with the nine rows unchanged, on the argument that
+    `laps_down` and the two gaps determine a position change locally. Measured,
+    they do not: `laps_down` correlates 0.091 with class position. See
+    `observe` for what that did to the value function.
 
     Section 7A's DNF term is dropped: the engine models no retirement and
     inventing one here would be physics.
@@ -227,7 +277,8 @@ class EnduranceEnv(gym.Env):
 
     def step(self, action: int):
         car, state, _forced, _lane = self._pending
-        before = state.t
+        before_t = state.t
+        before_pos = state.class_position(car)
         decision = to_decision(int(action), car, state)
 
         try:
@@ -235,17 +286,26 @@ class EnduranceEnv(gym.Env):
         except StopIteration as done:
             self.result = done.value
             row = self.result.classification().set_index("car_id").loc[self.focal]
-            info = {"classification": row.to_dict(), "result": self.result}
-            # The lap that ends the race scores nothing. Every policy gets
-            # exactly one of these, so it shifts every return by the same
-            # amount and cannot favour one over another.
-            return (self._observation(), 0.0, True, False, info)
+            # The last credit is taken against `classification()` rather than
+            # against a live state, so an episode's rewards sum to exactly the
+            # places gained between the start and the finishing position every
+            # table in this project reports. The live rule and the scored rule
+            # are the same rule, so this is a join rather than a correction.
+            reward = float(before_pos - int(row["class_pos"]))
+            info = {"classification": row.to_dict(), "result": self.result,
+                    "class_pos": int(row["class_pos"])}
+            return (self._observation(), reward, True, False, info)
 
-        # A lap was completed. That is the whole reward - see the class
-        # docstring for why the elapsed time it replaced was a constant.
+        # Places gained on this lap. Positive is a place taken. See the class
+        # docstring for why laps, which this replaced, were severed from the
+        # score by caution compression.
+        car_after, state_after, _f, _l = self._pending
+        after_pos = state_after.class_position(car_after)
+        reward = float(before_pos - after_pos)
+
         info = self._info()
-        info["step_s"] = self._pending[1].t - before      # diagnostic, not scored
-        return (self._observation(), 1.0, False, False, info)
+        info["step_s"] = state_after.t - before_t        # diagnostic, not scored
+        return (self._observation(), reward, False, False, info)
 
     def action_masks(self) -> np.ndarray:
         """The mask under the name `sb3-contrib` looks for.
@@ -271,7 +331,7 @@ class EnduranceEnv(gym.Env):
         car, state, forced, lane = self._pending
         info = {"action_mask": action_mask(state, forced), "forced": forced,
                 "lane_reason": lane.reason, "lap": car.laps_done,
-                "focal": self.focal}
+                "class_pos": state.class_position(car), "focal": self.focal}
         if race_seed is not None:
             info["seed"] = race_seed
         return info

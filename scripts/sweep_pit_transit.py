@@ -84,7 +84,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pandas as pd                                             # noqa: E402
 
 from endurance import harness, scale_dials                      # noqa: E402
-from endurance.assets import dials_fingerprint                  # noqa: E402
+from endurance.assets import (dials_fingerprint,               # noqa: E402
+                               dials_source)
 from endurance.policy import (                                  # noqa: E402
     PolicyCard,
     agent_roster,
@@ -200,7 +201,7 @@ def sweep(series_code: str, agent: bool = True,
         "multipliers": list(multipliers),
         "values": [round(config.classes[0].pit_transit_frac * m, 4)
                    for m in multipliers],
-        "dials_source": "STAND-IN, not calibrated",
+        "dials_source": dials_source(config),
         "policy_held_fixed": bool(agent),
         "policy_card": card.__dict__ if card else None,
         "null_per_point": "fresh NullRuns at every point",

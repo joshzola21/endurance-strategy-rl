@@ -16,9 +16,16 @@ background sweep needs something to mix: a field all running one strategy
 pits in lockstep, every car carries the same tyre age, and 02a's traffic
 correction cancels out of the comparison entirely.
 
-`ROSTER` is **decision 9's five**, the ones an agent is measured against.
-Parameter-free, meaning each derives its numbers from the dials rather than
-being handed them. Nothing in here may be constructed with a threshold.
+`ROSTER` is **decision 9's five plus amendment 25's sixth**, the ones an agent
+is measured against. Parameter-free, meaning each derives its numbers from the
+dials rather than being handed them. Nothing in here may be constructed with a
+threshold.
+
+The sixth, `never_pit`, is a control rather than a plan: it asks for nothing
+and lets the rules supply every stop. It is here because until it was, nothing
+in this project could tell a policy that had learned something from one that
+had learned to take no decisions - and five training seeds had quietly
+converged on the second. See amendment 25.
 
 The two are kept apart in code rather than by convention because
 `freeze_background` looks names up in `BASELINES`, so a roster strategy that
@@ -521,6 +528,31 @@ class LapDownDefender:
                            reason="fuel window")
 
 
+@dataclass
+class NeverPit:
+    """Stay out. Every stop this car takes is one the rules took for it.
+
+    Amendment 25. This is not a plan anybody would run, and it is not meant
+    to be: it is the null for a *learner*, which is a different null from
+    `RunToFuelWindow`.
+
+    `fuel_window` asks "did this plan beat the standard plan". `never_pit`
+    asks "did this policy learn anything at all", and those come apart. A
+    policy that converges on asking for nothing still stops, because
+    `_must_pit` takes a full service the moment the tank cannot cover a lap,
+    and it still scores - so it can clear the first question while having
+    taken no decisions. Five IMSA training seeds did exactly that and were
+    indistinguishable from this class on every column of the summary.
+
+    Parameter-free by construction: there is nothing here to tune. It is in
+    `ROSTER` and deliberately not in `BASELINES` - a field that never asks to
+    stop is a different experiment, not a background.
+    """
+
+    def __call__(self, car: CarState, state: RaceState) -> PitDecision:
+        return PitDecision(pit=False, reason="never pits")
+
+
 # ----------------------------------------------------------------------
 # The two mappings
 # ----------------------------------------------------------------------
@@ -532,15 +564,21 @@ BASELINES = {
     "fixed_stint": FixedLapStint,
 }
 
-# Decision 9's five. Every member takes no constructor arguments, which is
-# the shape parameter-freeness has to have: a strategy that can be tuned has
-# somewhere to put the tuning.
+# Decision 9's five, plus amendment 25's sixth. Every member takes no
+# constructor arguments, which is the shape parameter-freeness has to have: a
+# strategy that can be tuned has somewhere to put the tuning.
+#
+# `never_pit` is last because it is a different kind of member. The five above
+# are strategies; it is a control, and it is in this mapping rather than in a
+# script so that it is scored by the same lines, on the same banks, as
+# everything it exists to catch.
 ROSTER = {
     "fuel_window": RunToFuelWindow,
     "caution_gambler": CautionGambler,
     "track_position": TrackPositionDefender,
     "splash_and_dash": SplashAndDashPlanner,
     "lap_down": LapDownDefender,
+    "never_pit": NeverPit,
 }
 
 

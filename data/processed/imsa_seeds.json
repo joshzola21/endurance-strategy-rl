@@ -307,13 +307,15 @@
     829331
   ],
   "provenance": {
-    "drawn_at": "2026-08-10T16:09:09+00:00",
+    "drawn_at": "2026-08-22T00:37:18+00:00",
     "draw_seed": 20260806,
     "seed_space": 1000000,
     "race": "Daytona 24 2026",
     "duration_s": 86296.368,
-    "dials_fingerprint": "76bac232842e2d4f",
+    "dials_fingerprint": "54de878a6d26afbf",
+    "rules_fingerprint": "f3588be9ac572351",
     "sweep_is_prefix_of_headline": true,
-    "held_out_disjoint": true
+    "held_out_disjoint": true,
+    "dials_source": "calibrated from Daytona 2026 (imsa session 682)"
   }
 }

@@ -1,0 +1,217 @@
+{
+  "_note": [
+    "Every figure the documents quote, tied to the artefact it comes from.",
+    "",
+    "`key` names an entry in outputs/evidence.json, written by",
+    "scripts/evidence.py. `value` is what that entry must equal. `quoted` is",
+    "the exact string that has to appear in each file listed under `docs`.",
+    "",
+    "So there are two ways to fail and they mean different things. If the",
+    "artefact no longer yields `value`, the project has moved and the",
+    "documents are stale. If `quoted` is not in the document, somebody has",
+    "edited a number in the text without touching what produced it - which is",
+    "the failure this file exists for, and the one nothing else would catch.",
+    "",
+    "Figures that are not in this file are not checked. That is a real gap",
+    "and a smaller one than it looks: what belongs here is every number a",
+    "reader could act on, not every number that appears.",
+    "",
+    "Entries whose `key` is null are quoted from a source outside this",
+    "repository - a rulebook article, a row count in a file that is not",
+    "committed - and are checked only for being present in the text. The",
+    "`source` field says where to go and look."
+  ],
+  "figures": [
+    {
+      "key": "imsa.headline.caution_gambler.gained",
+      "value": 0.58,
+      "quoted": "58% of 200 races",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "note": "the strongest single result the project has"
+    },
+    {
+      "key": "imsa.held_out.caution_gambler.gained",
+      "value": 0.6,
+      "quoted": "gains in 60%",
+      "docs": [
+        "README.md"
+      ],
+      "note": "the held-out row; its median's interval includes zero, which the README says beside it"
+    },
+    {
+      "key": "wec.headline.splash_and_dash.gained",
+      "value": 0.45,
+      "quoted": "gains in 45% of races and *loses* in 1%",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ]
+    },
+    {
+      "key": "imsa.held_out.agent_minus_never_pit",
+      "value": 0.0,
+      "quoted": "to three decimal places",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "note": "amendment 25's whole purpose, and it must stay at zero or the claim changes"
+    },
+    {
+      "key": "imsa.dials_fingerprint",
+      "value": "54de878a6d26afbf",
+      "quoted": null,
+      "docs": [],
+      "note": "not quoted in the documents; recorded so a change is visible here"
+    },
+    {
+      "key": "wec.dials_fingerprint",
+      "value": "5cb7cf63e4446105",
+      "quoted": null,
+      "docs": []
+    },
+    {
+      "key": "imsa.total_cars",
+      "value": 60,
+      "quoted": "60 cars",
+      "docs": [
+        "README.md"
+      ]
+    },
+    {
+      "key": "wec.total_cars",
+      "value": 62,
+      "quoted": "62 cars",
+      "docs": [
+        "README.md",
+        "docs/WRITE_UP.md"
+      ]
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "1,658,803 laps",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "data/processed/laps_profile.md, produced by scripts/profile_laps.py from the uncommitted laps.csv"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "582 MB",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "source": "data/processed/laps_profile.md"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "13.47 s against a 22.45 s lane transit",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "amendment 14 and the post-04 handover section 3; reproducible from tests/test_stop_cost_floor.py run as a script"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "1,072 seconds",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 5, trap 2; the mechanism is asserted as a regression by tests/test_position_reward.py"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "+0.89 places",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "source": "post-04 handover section 5, trap 3"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "0.091",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "source": "post-04 handover section 5, trap 4"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "0.50, 0.50, 0.52, 0.73, 0.88, 0.90, 0.93",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "data/processed/pit_transit_estimate.json, quantile_estimate_pit_transit_frac per class, sorted"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "62% and 90%",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md",
+        "docs/ARCHITECTURE.md"
+      ],
+      "source": "data/processed/pit_transit_estimate.json, share_near_full per class"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "0.407",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "scripts/estimate_pit_transit.py --self-check, the planted truth"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "0.548",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "scripts/estimate_pit_transit.py --self-check, what a fifth percentile returns against it"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "factor of 2.8",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "source": "00 re-run sections 3 and 6; the caution share between two adjacent Daytonas"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "742",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "docs/ARCHITECTURE.md"
+      ],
+      "source": "post-04 handover section 8; steps per episode at Daytona"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "266 tests",
+      "docs": [
+        "README.md"
+      ],
+      "source": "pytest tests/ - update this when the count moves"
+    }
+  ]
+}

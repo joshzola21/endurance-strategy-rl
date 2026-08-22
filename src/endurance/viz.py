@@ -415,15 +415,29 @@ def plot_sweep_response(sweep: pd.DataFrame, statistic: str = "gained",
     dial = sorted(sweep["dial"].unique())
     fig, ax = plt.subplots(figsize=figsize)
 
+    # A sweep by value carries no multiplier - `sweep_dial` leaves the column
+    # empty rather than back-computing one off a zero default - so the x axis
+    # is chosen from the frame instead of assumed. The default marker moves
+    # with it: on a multiplier axis the calibrated point is 1.0, and on a
+    # value axis it is whatever the dial actually is.
+    by_value = ("multiplier" not in sweep.columns
+                or sweep["multiplier"].isna().all())
+    x = "value" if by_value else "multiplier"
+    if x not in sweep.columns:
+        raise ValueError(f"this sweep frame has neither a 'multiplier' nor a "
+                         f"'value' column: {list(sweep.columns)}")
+
     for name, g in sweep.groupby("strategy", sort=False):
-        g = g.sort_values("multiplier")
-        ax.plot(g["multiplier"], g[statistic], marker="o", markersize=4,
+        g = g.sort_values(x)
+        ax.plot(g[x], g[statistic], marker="o", markersize=4,
                 linewidth=1.3, label=name)
 
-    ax.axvline(1.0, color="0.4", linewidth=0.8, linestyle="--")
-    ax.annotate("calibrated", xy=(1.0, ax.get_ylim()[1]), xytext=(3, -10),
-                textcoords="offset points", fontsize=8, color="0.4")
-    ax.set_xlabel(f"multiplier on {', '.join(dial)}")
+    if not by_value:
+        ax.axvline(1.0, color="0.4", linewidth=0.8, linestyle="--")
+        ax.annotate("calibrated", xy=(1.0, ax.get_ylim()[1]), xytext=(3, -10),
+                    textcoords="offset points", fontsize=8, color="0.4")
+    ax.set_xlabel(f"{'value of' if by_value else 'multiplier on'} "
+                  f"{', '.join(dial)}")
     ax.set_ylabel(statistic.replace("_", " "))
     ax.set_title(f"{series.upper()} - sweep response")
     ax.legend(fontsize=8, ncol=2)

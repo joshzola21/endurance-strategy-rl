@@ -1,12 +1,29 @@
-duckdb>=0.10
-pandas>=2.0
-numpy>=1.24
-scipy>=1.11
-matplotlib>=3.7
-jupyter
-pytest>=7.0
-gymnasium>=0.29
-stable_baselines3>=2.3
-sb3-contrib>=2.3
-torch>=2.2
-onnxruntime>=1.17
+# What the hosted app installs, and nothing else.
+#
+# Streamlit Community Cloud reads this file, at the repository root, and runs
+# `pip install -r requirements.txt` before starting the app. So this file is a
+# deployment specification rather than a development one: everything in it is
+# something `app/` actually imports at runtime.
+#
+# The development set is `requirements-dev.txt`, which adds torch,
+# Stable-Baselines3, DuckDB and Jupyter. None of those is here. The app reads
+# an `.onnx` export through `onnxruntime` and never opens a `.zip`, it reads
+# frozen dials from `data/processed/` and never opens `laps.csv`, and it runs
+# no notebook. Installing the training stack on the host would add well over a
+# gigabyte to build something nothing on the page uses.
+#
+# Pinned to the versions in `requirements-lock.txt`, which is the environment
+# every number in this project was produced on. A hosted app that quietly
+# installed a different NumPy would be running a different simulator.
+
+# The package itself, from pyproject.toml. This is what makes `import
+# endurance` work on the host without the path insert in `app/__init__.py`,
+# which stays as the fallback for a tree where nothing has been installed.
+.
+
+streamlit==1.61.1
+numpy==2.5.1
+pandas==3.0.5
+matplotlib==3.11.1
+gymnasium==1.3.0
+onnxruntime==1.28.0

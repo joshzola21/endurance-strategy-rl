@@ -23,7 +23,10 @@ produced.
 The export carries **logits**, not the chosen action. 04 promises visible
 action probabilities, and a softmax over logits gives them for free; an
 export of the argmax alone would have thrown away the thing the panel is
-for.
+for. `action_probabilities` at the foot of this module is what reads them,
+and it lives here rather than in the app for the reason above: a second call
+into the session is a second way of turning a checkpoint into an answer, and
+one that could disagree with the decision the same policy is taking.
 
 The card
 --------
@@ -189,7 +192,31 @@ def _sb3_predict(path: Path):
             "pip install 'sb3-contrib>=2.3'") from e
 
     model = MaskablePPO.load(path, device="cpu")
-    return model.predict, model
+
+    def logits(obs):
+        """The same vector through torch, so a `.zip` answers 04 identically.
+
+        Torch is imported inside the closure: this module must still import
+        on a machine that has neither Stable-Baselines3 nor torch.
+        """
+        import torch
+
+        tensor, _ = model.policy.obs_to_tensor(
+            np.asarray(obs, dtype=np.float32))
+        with torch.no_grad():
+            features = model.policy.extract_features(tensor)
+            latent = model.policy.mlp_extractor.forward_actor(features)
+            return model.policy.action_net(latent).cpu().numpy()[0]
+
+    # Wrapped rather than returned bare: `model.predict` is a bound method
+    # and will not take an attribute, and hanging one on the underlying
+    # function would set it for every model in the process.
+    def predict(obs, deterministic: bool = True, state=None, **kw):
+        return model.predict(obs, deterministic=deterministic, state=state,
+                             **kw)
+
+    predict.logits = logits
+    return predict, model
 
 
 def _onnx_predict(path: Path):
@@ -221,6 +248,16 @@ def _onnx_predict(path: Path):
         p = np.exp(shifted) / np.exp(shifted).sum()
         return int(rng.choice(N_ACTIONS, p=p)), None
 
+    def logits(obs):
+        """The vector `predict` takes its argmax of, for 04's panel.
+
+        Same session as `predict`, so the ranking on the page and the
+        decision in the race cannot come apart.
+        """
+        batch = np.asarray(obs, dtype=np.float32).reshape(1, N_OBS)
+        return np.asarray(session.run(None, {input_name: batch})[0])[0]
+
+    predict.logits = logits
     return predict, session
 
 
@@ -264,6 +301,43 @@ def load_policy(path: str | Path, config=None, bank: SeedBank | None = None,
     strategy._backend = _held
     strategy._source = str(path)
     return strategy
+
+
+# ----------------------------------------------------------------------
+# What the policy thought, before it chose
+# ----------------------------------------------------------------------
+def action_logits(strategy: PolicyStrategy, obs) -> np.ndarray:
+    """The raw vector, from whichever backend loaded this policy.
+
+    Raises rather than returning `None` for a policy that cannot say: a panel
+    that silently renders nothing is worse than one that says why, and 04
+    catches this and prints the reason.
+    """
+    fn = getattr(strategy.predict, "logits", None)
+    if fn is None:
+        raise AttributeError(
+            "this policy has no logits handle; load it through `load_policy` "
+            "rather than building a `PolicyStrategy` around a bare callable")
+    return np.asarray(fn(obs), dtype=np.float64)
+
+
+def action_probabilities(strategy: PolicyStrategy, obs) -> np.ndarray:
+    """The softmax of the above, which is what 04's panel shows.
+
+    **Unmasked**, matching `PolicyStrategy` and the way the agent was scored:
+    the engine's override is what holds it to the rules, as it does the five
+    humans. So a policy asking to stay out on an empty tank shows a high
+    probability on *stay out*, and the page says beside it that the rules
+    take that decision anyway. Masking here would make the panel disagree
+    with the race going on next to it.
+
+    A ranking, not a magnitude. MaskablePPO has no Q(s,a), and wanting one is
+    a retraining job rather than a line of arithmetic.
+    """
+    z = action_logits(strategy, obs)
+    z = z - z.max()                      # shift for overflow, not for taste
+    e = np.exp(z)
+    return e / e.sum()
 
 
 # ----------------------------------------------------------------------

@@ -96,11 +96,14 @@ def test_the_background_baselines_are_not_the_roster():
 
     Stated as a test because the failure mode is somebody adding a roster
     strategy to `BASELINES` for convenience, at which point the field a
-    strategy is measured against contains the strategy.
+    strategy is measured against contains the strategy. `never_pit` is the
+    newest way that could happen and the worst: a whole field asking for
+    nothing is a different experiment, not a background.
     """
     assert set(BASELINES) - set(ROSTER) == {"caution_opportunist", "fixed_stint"}
     assert set(ROSTER) - set(BASELINES) == {
-        "caution_gambler", "track_position", "splash_and_dash", "lap_down"}
+        "caution_gambler", "track_position", "splash_and_dash", "lap_down",
+        "never_pit"}
     assert set(BASELINES) & set(ROSTER) == {"fuel_window"}
 
 
@@ -304,14 +307,42 @@ def test_every_roster_strategy_runs_a_whole_race_without_being_refused():
     Forced stops through a shut lane are the engine overriding the decision,
     and a roster member should not be generating them: they mean the
     strategy ran itself dry somewhere it could not stop.
+
+    **`never_pit` is exempt, and the exemption is the point of it.** It runs
+    itself dry every stint by construction and takes every stop as a forced
+    one, so some of those will land on a shut lane. That is what it is for -
+    it is a control, not a plan - and asserting otherwise would be asserting
+    that the null for a learner is a competent strategy. Exempted by name
+    rather than by loosening the condition, so the other five still have to
+    pass it.
     """
     cfg = config(duration_s=3 * 3600.0)
     for name, cls in ROSTER.items():
         result = run_race(cfg, strategies={FOCAL: cls()}, seed=4)
         mine = result.laps[result.laps["car_id"] == FOCAL]
         assert len(mine) > 0, name
+        if name == "never_pit":
+            continue
         if "lane_closed_stop" in mine.columns:
             assert mine["lane_closed_stop"].sum() == 0, name
+
+
+def test_never_pit_takes_every_stop_as_a_forced_one():
+    """The other half of the exemption above, asserted rather than assumed.
+
+    When a strategy declines a stop the rules require, the engine replaces the
+    decision with its own and writes its reason into `pit_reason`. So every
+    stop this control takes has to carry one of `_must_pit`'s reasons and
+    never a reason of its own. If that ever stops being true, `never_pit` has
+    started asking for something and is no longer the control it was added as.
+    """
+    cfg = config(duration_s=3 * 3600.0)
+    result = run_race(cfg, strategies={FOCAL: ROSTER["never_pit"]()}, seed=4)
+    mine = result.laps[result.laps["car_id"] == FOCAL]
+    stops = mine[mine["pitted"]]
+    assert len(stops) > 0, "the control never stopped at all"
+    assert set(stops["pit_reason"]) <= {"out of fuel", "tyres done",
+                                        "driver change"}
 
 
 def test_the_roster_is_not_all_the_same_strategy():

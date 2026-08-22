@@ -1,0 +1,20 @@
+# Settings the hosted app needs that the code should not carry.
+
+[server]
+# The pages read `data/processed/`, `outputs/policies/` and
+# `outputs/evaluation/` and write nothing at all, so file watching costs
+# restarts and buys nothing on a host where the files never change.
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+
+[client]
+# An exception on the page rather than in a log the reader cannot see. The
+# app's own errors are written to be read - a session restored against
+# recalibrated dials, a policy refused because its card names another race -
+# and hiding them would turn a deliberate refusal into a blank screen.
+showErrorDetails = true

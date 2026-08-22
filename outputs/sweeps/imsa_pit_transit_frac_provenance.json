@@ -2,7 +2,7 @@
   "dial": "pit_transit_frac",
   "series_code": "imsa",
   "race": "Daytona 24 2026",
-  "dials_fingerprint_at_multiplier_1": "76bac232842e2d4f",
+  "dials_fingerprint_at_multiplier_1": "54de878a6d26afbf",
   "bank": "sweep",
   "bank_fingerprint": "d9b110e4014ad7f4",
   "n_seeds": 50,
@@ -25,16 +25,16 @@
   "policy_card": {
     "series_code": "imsa",
     "algorithm": "MaskablePPO",
-    "dials_fingerprint": "76bac232842e2d4f",
+    "dials_fingerprint": "54de878a6d26afbf",
     "bank_fingerprint": "d9b110e4014ad7f4",
     "train_seed": 0,
     "total_timesteps": 500000,
     "n_envs": 8,
     "checkpoint": "imsa_maskable_ppo.zip",
     "onnx": "imsa_maskable_ppo.onnx",
-    "checkpoint_sha256": "cf6afdfa5a1e044f",
-    "onnx_sha256": "b422b4e7765089f3",
-    "trained_at": "2026-08-10T16:16:23+00:00",
+    "checkpoint_sha256": "4cc1e23a4f2125b5",
+    "onnx_sha256": "ad53969f8ce4c224",
+    "trained_at": "2026-08-18T13:53:47+00:00",
     "notes": {
       "race": "Daytona 24 2026",
       "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
@@ -56,5 +56,5 @@
     }
   },
   "null_per_point": "fresh NullRuns at every point",
-  "swept_at": "2026-08-10T17:29:42+00:00"
+  "swept_at": "2026-08-18T14:48:48+00:00"
 }

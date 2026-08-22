@@ -291,10 +291,20 @@ def _decisions(cfg, seed, focal=FOCAL, policy=None):
 # ----------------------------------------------------------------------
 # The observation
 # ----------------------------------------------------------------------
-def test_the_observation_is_nine_rows_in_the_unit_box():
+def test_the_observation_is_ten_rows_in_the_unit_box():
+    """Ten since amendment 24, and the tenth is the reason for the change.
+
+    The reward was defined on class position while the observation could not
+    see it: `laps_down` was the row meant to carry it and correlates 0.091
+    with it, being clipped at three laps with a front-runner at zero all race.
+    The value function was estimating "how many places will I gain from here"
+    without being told where here is. `class_position` correlates 1.000, which
+    is the least surprising sentence in this file and took four retrains to
+    reach.
+    """
     e = env()
     obs, _ = e.reset(seed=SEEDS[0])
-    assert obs.shape == (N_OBS,) == (9,)
+    assert obs.shape == (N_OBS,) == (10,)
     assert obs.dtype == np.float32
     assert e.observation_space.contains(obs)
     assert len(OBS_ROWS) == N_OBS
@@ -552,27 +562,51 @@ def test_the_held_out_bank_is_refused_unless_it_is_asked_for():
     allowed.reset(seed=allowed.bank.held_out[0])      # must not raise
 
 
-def test_the_reward_credits_one_lap_a_lap():
-    """One lap, credited, and nothing else.
+def test_the_reward_is_the_change_in_class_position():
+    """Places, credited as they change.
 
-    Supersedes `test_the_reward_is_negative_and_about_a_lap_long`, which
-    asserted dense negative time. That reward was withdrawn at 03b: the
-    elapsed times it summed are the length of the race, and the race has a
-    fixed duration, so the return was the same number whatever the policy
-    did. The old test passed on it the whole time - see
-    `test_the_return_tells_two_policies_apart` for the question it did not
-    ask.
+    Supersedes `test_the_reward_credits_one_lap_a_lap`, which asserted a lap
+    a lap. **That is the second reward this file has outlived**, and this time
+    the superseded test was left in place for a whole pass and went on failing
+    quietly: `tests/test_position_reward.py` was written beside it rather than
+    over it. Two tests asserting two different rewards is one test lying.
 
-    The pit penalty section 7A names still needs no term of its own. A stop
-    makes that step long, which consumes race time and leaves fewer laps to
-    credit, so it is priced by the horizon rather than by a constant.
+    The lap reward was withdrawn at amendment 24 for a measured reason, not a
+    stylistic one. A car that stops forty extra times at Daytona spends 1,072 s
+    more in the pits and loses *zero* laps: caution compression refunds 70% of
+    the time a stop costs at that caution rate, so laps and the score came
+    apart exactly where the strategy lives. The IMSA policy took 65 stops
+    against the null's 24.5, scored as having lost nothing in laps, and fell a
+    place.
+
+    Three things follow from crediting position instead, and all three are
+    asserted here because each has a different way of going wrong:
     """
     e = env()
-    _steps, rewards, _info = drive(
-        e, lambda obs, mask: STAY if mask[STAY] else FULL_TYRES, seed=SEEDS[0])
-    assert rewards[-1] == 0.0, "the lap that ends the race scores nothing"
-    body = np.array(rewards[:-1])
-    assert (body == 1.0).all(), "a lap is a lap, under caution or not"
+    _obs, info = e.reset(seed=SEEDS[0])
+    start = info["class_pos"]
+
+    rewards = []
+    while True:
+        _obs, r, term, trunc, info = e.step(
+            STAY if info["action_mask"][STAY] else FULL_TYRES)
+        rewards.append(r)
+        if term or trunc:
+            break
+
+    # A place is a whole thing. A fractional reward would mean position had
+    # stopped being derived the way `RaceResult.positions` derives it.
+    assert all(float(r).is_integer() for r in rewards)
+
+    # Most laps change nothing, which is what makes this reward sparse and is
+    # the cost of the change. A reward that moved on every step would be
+    # measuring something other than position.
+    assert sum(1 for r in rewards if r == 0.0) > 0.5 * len(rewards)
+
+    # And the whole design: the steps telescope to the number the table
+    # reports, so an episode's return *is* the headline statistic rather than
+    # a proxy for it.
+    assert sum(rewards) == pytest.approx(start - info["class_pos"], abs=1e-9)
 
 
 def test_the_return_tells_two_policies_apart():
@@ -602,36 +636,57 @@ def test_the_return_tells_two_policies_apart():
         f"{sum(stop_always[1])} - the return is not reading the policy")
 
 
-def test_the_return_is_the_laps_and_not_the_clock():
-    """The specific defect, stated so it cannot come back quietly.
+def test_the_return_is_the_places_and_not_the_clock():
+    """Two withdrawn rewards, and the guard that outlives both.
 
-    Under the superseded reward the return was `duration_s / base_pace_s`
-    for every policy, because a timed race takes the same time however it is
-    driven. So the test is that the return tracks laps and *not* elapsed
-    race time - and elapsed race time is asserted to be near-constant, which
-    is what makes the first half of the claim worth anything.
+    The first was elapsed time, and the defect was that a timed race takes the
+    same time however it is driven, so the return was `duration_s /
+    base_pace_s` for every policy. The second was laps, and the defect was
+    that caution compression severs laps from the score. The clock limb below
+    is what caught the first and it is kept unchanged - it is still true, and
+    it is what makes "the return is not the clock" worth asserting at all.
+
+    What has changed is the other limb. It used to require the return to track
+    laps at a correlation above 0.99, which was a tautology when the return
+    *was* laps and is simply false now. In its place: the return is exactly
+    the places the car gained, and it is emphatically not the lap count, which
+    is the shape the withdrawn reward had.
     """
     e = env()
     runs = []
     for policy in (lambda obs, mask: STAY if mask[STAY] else FULL_TYRES,
                    lambda obs, mask: FULL_TYRES if mask[FULL_TYRES] else STAY,
                    lambda obs, mask: FLAG_KEEP if mask[FLAG_KEEP] else STAY):
-        steps, rewards, info = drive(env(), policy, seed=SEEDS[0])
-        runs.append((steps, sum(rewards), info["classification"]["race_time_s"]))
+        fresh = env()
+        _obs, first = fresh.reset(seed=SEEDS[0])
+        start = first["class_pos"]
+        steps, total, info = 0, 0.0, first
+        while True:
+            _obs, r, term, trunc, info = fresh.step(
+                policy(_obs, info["action_mask"]))
+            steps += 1
+            total += r
+            if term or trunc:
+                break
+        runs.append((steps, total, info["classification"]["race_time_s"],
+                     start, info["class_pos"]))
 
-    # The correlation limb is a tautology *today* - the return is exactly
-    # `steps - 1` - and that is the point of writing it down. It becomes a
-    # real assertion the moment anybody puts a time term back in, which is
-    # the change this file has already failed to notice once.
     laps = np.array([r[0] for r in runs], dtype=float)
     returns = np.array([r[1] for r in runs], dtype=float)
     clock = np.array([r[2] for r in runs], dtype=float)
 
     assert laps.std() > 1.0, "the three policies drove the same race"
     assert clock.std() / clock.mean() < 0.01, (
-        "race time varied, so the old reward would have had signal after "
-        "all and this test is not measuring what it claims")
-    assert np.corrcoef(laps, returns)[0, 1] > 0.99
+        "race time varied, so the first withdrawn reward would have had "
+        "signal after all and this test is not measuring what it claims")
+
+    for steps, total, _clock, start, finish in runs:
+        assert total == pytest.approx(start - finish, abs=1e-9)
+
+    # And not the lap count. A return in the tens or hundreds is the withdrawn
+    # reward come back; a place delta lives in single figures.
+    assert not np.allclose(returns, laps - 1.0)
+    assert (np.abs(returns) <= laps.min()).all()
 
 
 def test_the_episode_ends_once_and_reports_the_classification():

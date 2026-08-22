@@ -1,0 +1,33 @@
+{
+  "series_code": "wec",
+  "algorithm": "MaskablePPO",
+  "dials_fingerprint": "5cb7cf63e4446105",
+  "bank_fingerprint": "fb5c4439f77c420d",
+  "train_seed": 0,
+  "total_timesteps": 500000,
+  "n_envs": 8,
+  "checkpoint": "wec_maskable_ppo.zip",
+  "onnx": "wec_maskable_ppo.onnx",
+  "checkpoint_sha256": "6fbaf2bbc33639bb",
+  "onnx_sha256": "d05a9bb3a69ffde1",
+  "trained_at": "2026-08-18T18:46:14+00:00",
+  "notes": {
+    "race": "Le Mans 24 2026",
+    "dials_source": "STAND-IN, not calibrated (see freeze_assets.py)",
+    "trained_on": "headline bank only; held-out refused by the env",
+    "hyperparameters": {
+      "n_steps": 512,
+      "batch_size": 512,
+      "gamma": 1.0,
+      "gae_lambda": 0.95,
+      "learning_rate": 0.0003,
+      "ent_coef": 0.01
+    },
+    "net_arch": [
+      64,
+      64
+    ],
+    "mask": "applied in training; PolicyStrategy carries none",
+    "reward": "places gained in class, credited as they change"
+  }
+}

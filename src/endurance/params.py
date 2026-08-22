@@ -38,6 +38,7 @@ ASSUMED_FIELDS = (
     "tyre_life_laps",
     "pit_transit_frac",
     "pit_tyre_frac",
+    "pit_transit_caution_discount",
     "caution_pits_open_delay_laps",
     "caution_queue_gap_s",
     "caution_close_frac",
@@ -76,7 +77,17 @@ class ClassDials:
     # --- Dial 4: pit cost ------------------------------------------------
     pit_time_mean_s: float = 45.0
     pit_time_std_s: float = 3.0
-    pit_caution_discount: float = 0.4  # ASSUMED: share of pit cost saved under caution
+    pit_caution_discount: float = 0.4  # ASSUMED: share of *service* saved under caution
+    # ASSUMED: the same, for the lane transit, and separate from the line above
+    # because the two are different claims. The service discount says a slow
+    # field makes the time in the box matter less. Applying it to the transit
+    # as well says the drive down the lane is cheaper too - arguable, and it is
+    # what produced amendment 14's floor violation, because at 0.4 a caution
+    # stop came out below the cost of simply driving the length of the lane.
+    # Default 0.0: the transit is not discounted. Set it equal to
+    # `pit_caution_discount` to reproduce the pre-amendment engine exactly,
+    # which is what the test of that name asserts.
+    pit_transit_caution_discount: float = 0.0
     # How a stop divides up. Shares of the measured mean rather than absolute
     # seconds, so they cannot go negative on a fast class: a full tank plus
     # tyres still costs `pit_time_mean_s` whatever these are set to, and they
@@ -155,19 +166,65 @@ class RaceConfig:
         return cls.from_dict(json.loads(Path(path).read_text()))
 
 
+def _adjusted(config: RaceConfig, changes: dict[str, float],
+              multiply: bool) -> RaceConfig:
+    """The one place a twisted copy of the dials is made.
+
+    `scale_dials` and `set_dials` differ by one line and are otherwise the
+    same operation - copy, check the name, write the field, hold the caution
+    rate below 1. Written once because a sweep that took a different route to
+    a config would be a second definition of what a lever does, and the two
+    would agree right up until one of them was edited.
+    """
+    new = RaceConfig.from_dict(config.to_dict())
+
+    if not multiply:
+        # Setting writes the *same* number onto every class, while scaling
+        # moves each class's own value. That is fine for a dial the classes
+        # share and wrong for one they do not - `base_pace_s` differs by
+        # fifteen seconds between GTP and GTD, and flattening it would be a
+        # different race presented as a lever. Refused rather than reported:
+        # the caller either meant a dial that is shared, or did not mean this.
+        for dial in changes:
+            seen = {getattr(c, dial) for c in new.classes
+                    if hasattr(c, dial)}
+            if len(seen) > 1:
+                raise ValueError(
+                    f"the classes hold {len(seen)} different values for "
+                    f"{dial!r} ({sorted(seen)}), so setting one number would "
+                    f"flatten them. Scale it instead, or set it per class.")
+
+    for c in new.classes:
+        for dial, value in changes.items():
+            if not hasattr(c, dial):
+                raise AttributeError(f"{dial!r} is not a dial on ClassDials")
+            setattr(c, dial, getattr(c, dial) * value if multiply else value)
+        c.caution_rate = min(c.caution_rate, 0.95)
+    return new
+
+
 def scale_dials(config: RaceConfig, **multipliers: float) -> RaceConfig:
     """Return a copy of `config` with named dials multiplied.
 
-    This is the mechanism behind every lever in the eventual app: rather than
-    editing the engine, you hand it a twisted copy of the dials. For example
+    This is the mechanism behind every lever in the app: rather than editing
+    the engine, you hand it a twisted copy of the dials. For example
     `scale_dials(cfg, caution_rate=3.0)` gives a race three times as
     caution-heavy, everything else held fixed.
     """
-    new = RaceConfig.from_dict(config.to_dict())
-    for c in new.classes:
-        for dial, mult in multipliers.items():
-            if not hasattr(c, dial):
-                raise AttributeError(f"{dial!r} is not a dial on ClassDials")
-            setattr(c, dial, getattr(c, dial) * mult)
-        c.caution_rate = min(c.caution_rate, 0.95)
-    return new
+    return _adjusted(config, multipliers, multiply=True)
+
+
+def set_dials(config: RaceConfig, **values: float) -> RaceConfig:
+    """Return a copy of `config` with named dials set to a value.
+
+    Multiplying cannot move a dial that sits at zero, and one now does:
+    `pit_transit_caution_discount` defaults to 0.0, so every multiplier
+    leaves it there. Amendment 23 says that dial is swept like any other
+    assumption, and until this existed it could not be swept at all.
+
+    Use this for a dial whose default is zero, or wherever the question is
+    "what if this were 0.4" rather than "what if this were twice what it is".
+    Scaling remains the default everywhere else, because a multiplier is
+    comparable across classes and a value is not.
+    """
+    return _adjusted(config, values, multiply=False)

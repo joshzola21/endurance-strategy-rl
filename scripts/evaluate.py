@@ -81,7 +81,8 @@ import numpy as np                                              # noqa: E402
 import pandas as pd                                             # noqa: E402
 
 from endurance import harness                                   # noqa: E402
-from endurance.assets import dials_fingerprint                  # noqa: E402
+from endurance.assets import (dials_fingerprint,               # noqa: E402
+                               dials_source)
 from endurance.policy import (                                  # noqa: E402
     PolicyCard,
     agent_roster,
@@ -213,7 +214,10 @@ def evaluate(series_code: str, bank_name: str, agent: bool = True,
         **comparison.provenance,
         "bank": bank_name,
         "bank_fingerprint": bank_fingerprint(bank),
-        "dials_source": "STAND-IN, not calibrated",
+        # Derived, never typed. This key read "STAND-IN, not calibrated"
+        # for four generations after it stopped being true, then read
+        # "STAND-IN, calibrated", which describes nothing at all.
+        "dials_source": dials_source(config),
         "agent": bool(agent),
         "policy_card": card.__dict__ if card else None,
         "benchmark_joined": "gap_to_benchmark_pos" in rows.columns,
