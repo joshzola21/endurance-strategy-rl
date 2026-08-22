@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endurance-strategy-rl"
+version = "0.5.0"
+description = "An interactive model of WEC and IMSA endurance racing, with human-style strategies and a reinforcement learning policy on the same terms."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+# The core is what `import endurance` needs and nothing more. `gymnasium` is
+# in it rather than in `train` because `endurance/__init__.py` imports
+# `gym_env`, and the app reaches for `observe`, `action_mask` and
+# `to_decision` directly - so the hosted app genuinely needs it even though it
+# never trains anything. That is settled by the imports rather than chosen.
+#
+# `pandas>=2.2` is a real floor, not a habit: `harness.summarise` passes
+# `include_groups=False` to `DataFrameGroupBy.apply`, which earlier versions do
+# not accept.
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.2",
+    "gymnasium>=0.29",
+]
+
+# Four groups, because four different jobs need four different machines.
+#
+# `app` is what the hosted deployment installs, and it is deliberately small:
+# no torch, no Stable-Baselines3, no DuckDB, no Jupyter. The app reads an
+# `.onnx` export through `onnxruntime` and never opens a `.zip`.
+#
+# `train` is the only group that needs torch. `scripts/train.py` writes the
+# `.zip`, the `.onnx` and the card; `scripts/evaluate.py` loads the `.zip`, so
+# scoring a policy needs this group too even though watching one does not.
+#
+# `calibrate` is stage 00 and needs the raw timing, which is not in this
+# repository. See the README.
+[project.optional-dependencies]
+app = [
+    "streamlit>=1.40",
+    "matplotlib>=3.7",
+    "onnxruntime>=1.17",
+]
+train = [
+    "stable_baselines3>=2.3",
+    "sb3-contrib>=2.3",
+    "torch>=2.2",
+    "onnx>=1.16",
+    "onnxruntime>=1.17",
+]
+calibrate = [
+    "duckdb>=0.10",
+]
+dev = [
+    "endurance-strategy-rl[app,train,calibrate]",
+    "pytest>=7.0",
+    "jupyter",
+]
+
+[project.urls]
+Repository = "https://github.com/USERNAME/endurance-strategy-rl"
+
+# src layout. `app/` sits beside `src/` and is deliberately **not** installed:
+# it is an entry point run by `streamlit run app/Home.py`, not a library, and
+# gate B in `tests/test_app.py` asserts that importing the package pulls in
+# neither Streamlit nor the app.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# `tests/` has no `conftest.py`; every file puts `src` on the path itself.
+# Kept that way on purpose - `python tests/run_tests_nopytest.py` has to work
+# in an environment without pytest, and a conftest would not run there.
