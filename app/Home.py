@@ -27,7 +27,7 @@ from app import statements
 from app.loading import available_series, load_agent, load_assets
 from endurance.strategies import ROSTER
 
-st.set_page_config(page_title="Endurance strategy sandbox", layout="wide")
+st.set_page_config(page_title="RL in Endurance Race Strategy", page_icon="★", layout="wide")
 
 st.title("RL in Endurance Race Strategy")
 st.markdown(

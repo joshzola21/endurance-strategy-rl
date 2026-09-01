@@ -25,7 +25,7 @@ from app.loading import (MEASURED_COUNTERPART, available_series, load_agent,
                          load_assets)
 from endurance.params import ASSUMED_FIELDS
 
-st.set_page_config(page_title="Methods", layout="wide")
+st.set_page_config(page_title="Methods · RL in Endurance Race Strategy", page_icon="★", layout="wide")
 
 
 def _readable(key: str) -> str:

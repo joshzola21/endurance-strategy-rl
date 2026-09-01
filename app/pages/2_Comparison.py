@@ -43,7 +43,7 @@ from endurance import harness, viz
 from endurance.assets import dials_fingerprint
 from endurance.policy import agent_roster
 
-st.set_page_config(page_title="Comparison", layout="wide")
+st.set_page_config(page_title="Comparison · RL in Endurance Race Strategy", page_icon="★", layout="wide")
 st.caption("  ·  ".join(statements.strip_lines()))
 st.divider()
 

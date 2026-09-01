@@ -36,7 +36,7 @@ from app.loading import (LEVERS, MEASURED_COUNTERPART, Assets, agent_for_config,
 from endurance.assets import dials_fingerprint
 from endurance.strategies import ROSTER
 
-st.set_page_config(page_title="The race", layout="wide")
+st.set_page_config(page_title="Race · RL in Endurance Race Strategy", page_icon="★", layout="wide")
 
 # The four statements, on every screen rather than only on the page nobody
 # clicks. Short forms here; the methods page carries them in full.
