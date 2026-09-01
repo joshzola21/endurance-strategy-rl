@@ -1,4 +1,4 @@
-# Endurance race strategy
+# RL in Endurance Race Strategy
 
 A simulator of WEC and IMSA endurance racing, built from real lap timing, with
 five human pit strategies, a control that never calls a stop, and an agent
