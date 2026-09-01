@@ -66,8 +66,8 @@ from endurance.strategies import ROSTER, _fuel_window_reached
 # wrote its own would be a second definition of the moment the app claims to
 # be pausing on - the same failure as a second simulator, one storey down.
 
-ACTION_NAMES = ("stay out", "full + tyres", "full, keep tyres",
-                "fill to the flag + tyres", "fill to the flag, keep tyres")
+ACTION_NAMES = ("stay out", "fill up, new tyres", "fill up, same tyres",
+                "fuel to the flag, new tyres", "fuel to the flag, same tyres")
 assert len(ACTION_NAMES) == N_ACTIONS
 
 
@@ -127,18 +127,18 @@ def triggers(frame_car: CarState, state: RaceState, forced: str,
 
     was_caution = previous.state.under_caution if previous else False
     if state.under_caution and not was_caution:
-        out.append(Pause("caution", "full-course yellow called"))
+        out.append(Pause("caution", "a full-course yellow is out"))
 
     was_open = previous.lane.open if previous else True
     if lane.open and not was_open:
-        out.append(Pause("pit_window", "the lane has opened to this class"))
+        out.append(Pause("pit_window", "the pit lane has opened to this class"))
     elif not lane.open and was_open:
         out.append(Pause("lane_shut", lane.reason))
 
     if forced:
-        out.append(Pause("forced", f"the rules take this decision: {forced}"))
+        out.append(Pause("forced", f"the rules are taking this one: {forced}"))
     elif _fuel_window_reached(frame_car, cls):
-        out.append(Pause("fuel", "inside the fuel window"))
+        out.append(Pause("fuel", "the car is inside its fuel window"))
 
     return tuple(out)
 
@@ -252,7 +252,7 @@ class RaceController:
         """Send one decision. The whole of the stepping.
 
         The seat is asked once per crossing and its answer is used or
-        discarded here, never both - a strategy carrying state must not see
+        discarded here, never both. A strategy carrying state must not see
         a lap twice because the page rendered it twice.
         """
         if self.finished:

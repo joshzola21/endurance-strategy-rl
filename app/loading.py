@@ -350,7 +350,8 @@ LEVERS = (
 # with them (amendment 15), which is a fact about the model the page owes
 # the reader rather than a footnote for the write-up.
 MEASURED_COUNTERPART = {
-    "caution_pace_multiplier": "assumed 1.6; observed 1.87 in IMSA, 1.79 in WEC",
+    "caution_pace_multiplier": "assumed 1.6, but the timing says 1.87 in IMSA "
+                               "and 1.79 in WEC",
     # This used to claim 0.51-0.66 from a low quantile of real pit times.
     # Retired at 05: that quantile is not an estimator of a fixed cost, and
     # `scripts/estimate_pit_transit.py` shows why in three ways - it is biased
@@ -358,11 +359,12 @@ MEASURED_COUNTERPART = {
     # across the seven classes of these two races, and the regression that
     # would decide the question has no leverage because endurance cars fill to
     # the brim. There is no measured counterpart, and saying so is the finding.
-    "pit_transit_frac": "assumed 0.25; NOT MEASURABLE from lap timing - "
-                        "separating what a stop costs to enter from what it "
-                        "costs to fill needs stops that took different amounts "
-                        "of fuel, and 62-90% of stops in these two races are "
-                        "followed by a near-full tank",
+    "pit_transit_frac": "assumed 0.25, and it can't be measured from lap "
+                        "timing at all: telling what a stop costs to enter "
+                        "apart from what it costs to fill needs stops that "
+                        "took different amounts of fuel, and 62% to 90% of "
+                        "stops in these two races are followed by a near-full "
+                        "tank",
 }
 
 
@@ -394,9 +396,10 @@ def lever_warnings(config: RaceConfig) -> list[str]:
     for c in config.classes:
         total = c.pit_transit_frac + c.pit_tyre_frac
         if total > 1.0:
-            out.append(f"{c.class_name}: pit_transit_frac + pit_tyre_frac = "
-                       f"{total:.2f} > 1, so a full service costs less than "
-                       f"its parts and fuel is no longer priced")
+            out.append(f"{c.class_name}: pit_transit_frac and pit_tyre_frac "
+                       f"now add up to {total:.2f}, which is more than a whole "
+                       f"stop. Past that point a full service costs less than "
+                       f"its parts and fuel stops being charged for at all.")
     return out
 
 

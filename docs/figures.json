@@ -12,14 +12,40 @@
     "edited a number in the text without touching what produced it - which is",
     "the failure this file exists for, and the one nothing else would catch.",
     "",
-    "Figures that are not in this file are not checked. That is a real gap",
-    "and a smaller one than it looks: what belongs here is every number a",
-    "reader could act on, not every number that appears.",
-    "",
     "Entries whose `key` is null are quoted from a source outside this",
     "repository - a rulebook article, a row count in a file that is not",
     "committed - and are checked only for being present in the text. The",
-    "`source` field says where to go and look."
+    "`source` field says where to go and look.",
+    "",
+    "Three things changed at 06.",
+    "",
+    "**Coverage is now total, and enforced.** `check_figures.py --strict`",
+    "fails when any document holds a number this file does not account for.",
+    "It was reported and not enforced until the write-up rewrite made the",
+    "difference matter: a rewrite is exactly when a number gets introduced,",
+    "moved or quietly dropped, and a count nobody fails is a count nobody",
+    "reads.",
+    "",
+    "**Whitespace no longer counts.** Both the document and `quoted` are",
+    "collapsed to single spaces before matching, so re-wrapping a paragraph",
+    "does not fail the check. Rewrapping is not editing a figure, and a check",
+    "that cannot tell the two apart trains its reader to ignore it.",
+    "",
+    "**A `.py` file can be a document.** `app/statements.py` holds the four",
+    "things the app must say, which is the most-read text in the project and",
+    "was guarded by nothing. It is read through its syntax tree, so implicit",
+    "string concatenation is joined and docstrings are excluded - what is",
+    "checked is what a visitor sees, not what the module says about itself.",
+    "",
+    "`not_figures` lists numbers that are not claims: a language version, a",
+    "path. They are excluded from the coverage count with a reason, rather",
+    "than the count being loosened to let them through."
+  ],
+  "not_figures": [
+    {
+      "text": "3.11",
+      "why": "the minimum Python version in README.md, not a measurement"
+    }
   ],
   "figures": [
     {
@@ -37,9 +63,10 @@
       "value": 0.6,
       "quoted": "gains in 60%",
       "docs": [
-        "README.md"
+        "README.md",
+        "docs/WRITE_UP.md"
       ],
-      "note": "the held-out row; its median's interval includes zero, which the README says beside it"
+      "note": "the held-out row. Both documents now state the share and say beside it that the median's interval includes zero, which the write-up did not before 06"
     },
     {
       "key": "wec.headline.splash_and_dash.gained",
@@ -55,7 +82,8 @@
       "quoted": "to three decimal places",
       "docs": [
         "docs/WRITE_UP.md",
-        "README.md"
+        "README.md",
+        "app/statements.py"
       ],
       "note": "amendment 25's whole purpose, and it must stay at zero or the claim changes"
     },
@@ -111,6 +139,16 @@
     {
       "key": null,
       "value": null,
+      "quoted": "1.66",
+      "docs": [
+        "docs/WRITE_UP.md",
+        "README.md"
+      ],
+      "source": "data/processed/laps_profile.md; the same count as 1,658,803, rounded, and it must move with it"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "13.47 s against a 22.45 s lane transit",
       "docs": [
         "docs/WRITE_UP.md"
@@ -120,11 +158,56 @@
     {
       "key": null,
       "value": null,
+      "quoted": "164 times in a 189-lap race",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 3, trap 1; what the agent did once the stop was priced below its own lane"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "1,072 seconds",
       "docs": [
         "docs/WRITE_UP.md"
       ],
       "source": "post-04 handover section 5, trap 2; the mechanism is asserted as a regression by tests/test_position_reward.py"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "1,072 s more in the pits",
+      "docs": [
+        "README.md"
+      ],
+      "source": "post-04 handover section 5, trap 2; the README's wording of the entry above"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "70% at Daytona's rate, 35% at a third of it, 8% at a near-green race",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 5, trap 2; the refund against the caution rate"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "70% at Daytona and 8% at a near-green race",
+      "docs": [
+        "README.md"
+      ],
+      "source": "post-04 handover section 5, trap 2; the README drops the middle point of the same sweep"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "70% of the time a stop costs",
+      "docs": [
+        "app/statements.py"
+      ],
+      "source": "post-04 handover section 5, trap 2; the app's wording of the same refund"
     },
     {
       "key": null,
@@ -139,12 +222,85 @@
     {
       "key": null,
       "value": null,
+      "quoted": "\u22120.67 places",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 5, trap 3; the same forced stop at the flag. The minus is U+2212, not a hyphen"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "**\u22120.67**",
+      "docs": [
+        "README.md"
+      ],
+      "source": "post-04 handover section 5, trap 3; the README's wording of the entry above"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "| Le Mans | \u22120.45 places | \u22120.82 places |",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 5, trap 3; the Le Mans row, where there is no sign flip and so no trap"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "0.091",
       "docs": [
         "docs/WRITE_UP.md",
         "README.md"
       ],
       "source": "post-04 handover section 5, trap 4"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "correlating 1.000 with position",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "post-04 handover section 5, trap 4; the tenth observation row that replaced the 0.091 proxy"
+    },
+    {
+      "key": "wec.train_seed_spread_gained",
+      "value": 0.45,
+      "quoted": "ranged from 0.000 to 0.450",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": null,
+      "note": "the artefact records the spread rather than the two ends. The spread equals the upper end here only because the lower one is zero, so if the low seed ever stops scoring zero this entry needs re-reading rather than re-valuing"
+    },
+    {
+      "key": "wec.train_seed_spread_gained",
+      "value": 0.45,
+      "quoted": "by 0.45 where two hundred paired races can only resolve 0.03",
+      "docs": [
+        "README.md",
+        "app/statements.py"
+      ],
+      "source": null,
+      "note": "the same spread, as the README and the app word it"
+    },
+    {
+      "key": "wec.train_seed_stops",
+      "value": [
+        38.0,
+        65.0,
+        72.5,
+        174.0,
+        194.0
+      ],
+      "quoted": "38, 65, 72.5, 174, 194",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": null,
+      "note": "promoted from source-backed at 06, and the promotion immediately caught the write-up quoting 72 where the artefact records 72.5. That is the failure this manifest exists for, and no amount of reading would have found it"
     },
     {
       "key": null,
@@ -169,6 +325,16 @@
     {
       "key": null,
       "value": null,
+      "quoted": "62% to 90%",
+      "docs": [
+        "app/loading.py",
+        "app/pages/3_Methods.py"
+      ],
+      "source": "data/processed/pit_transit_estimate.json, share_near_full per class; the app's wording of the entry above"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "0.407",
       "docs": [
         "docs/WRITE_UP.md"
@@ -187,12 +353,59 @@
     {
       "key": null,
       "value": null,
+      "quoted": "I set it to 0.25",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "params.ClassDials.pit_transit_frac, the assumed default; amendment 31 says why it stays there"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "assumed at 0.25",
+      "docs": [
+        "README.md"
+      ],
+      "source": "params.ClassDials.pit_transit_frac; the README's wording of the entry above"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "assumed 0.25",
+      "docs": [
+        "app/loading.py"
+      ],
+      "source": "params.ClassDials.pit_transit_frac; the slider note, amendment 31"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "assumed 1.6, but the timing says 1.87 in IMSA and 1.79 in WEC",
+      "docs": [
+        "app/loading.py"
+      ],
+      "source": "amendment 15; the one assumed dial with a measured counterpart that disagrees and is left where it is"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "factor of 2.8",
       "docs": [
         "docs/WRITE_UP.md",
-        "README.md"
+        "README.md",
+        "app/statements.py",
+        "app/pages/3_Methods.py"
       ],
       "source": "00 re-run sections 3 and 6; the caution share between two adjacent Daytonas"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "0.7% away",
+      "docs": [
+        "app/statements.py"
+      ],
+      "source": "00 re-run; the gap between the frozen caution dials and what the code returns after the determinism fix"
     },
     {
       "key": null,
@@ -207,11 +420,61 @@
     {
       "key": null,
       "value": null,
+      "quoted": "art. 46.3.1",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "IMSA Sporting Regulations 2026; the pit lane reopening in class order"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "art. 46.3.3",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "IMSA Sporting Regulations 2026; the Short Full-Course-Yellow, under which the lane never opens at all"
+    },
+    {
+      "key": null,
+      "value": null,
+      "quoted": "art. 14.6.5",
+      "docs": [
+        "docs/WRITE_UP.md"
+      ],
+      "source": "2026 WEC Sporting Regulations; the whole field released together. Paired with 14.5.2, which is why the blueprint's claim that the WEC lane stays open was wrong"
+    },
+    {
+      "key": null,
+      "value": null,
       "quoted": "266 tests",
       "docs": [
         "README.md"
       ],
       "source": "pytest tests/ - update this when the count moves"
+    },
+    {
+      "key": "imsa.n_classes",
+      "value": 4,
+      "quoted": "60 cars, four classes",
+      "docs": [
+        "README.md"
+      ]
+    },
+    {
+      "key": "wec.n_classes",
+      "value": 3,
+      "quoted": "62 cars, three classes",
+      "docs": [
+        "README.md"
+      ]
+    },
+    {
+      "key": "rules_fingerprint",
+      "value": "f3588be9ac572351",
+      "quoted": null,
+      "docs": [],
+      "note": "not quoted in the documents; recorded beside the two dials fingerprints so that a change to the rulebook logic is visible here, which is the whole reason amendment 29 built it"
     }
   ]
 }

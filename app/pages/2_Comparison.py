@@ -47,13 +47,13 @@ st.set_page_config(page_title="Comparison", layout="wide")
 st.caption("  ·  ".join(statements.strip_lines()))
 st.divider()
 
-st.title("How the strategies compare")
+st.title("How the Strategies Compare")
 st.markdown(
-    "Every strategy is scored against the same race, run twice: once with "
-    "the strategy in the focal car and once with the fuel-window plan. The "
-    "difference between those two runs is the strategy's effect on that "
-    "race, with the cautions, the traffic and the field held identical. "
-    "Positive is better in every column."
+    "Every strategy is scored on the same race, run twice: once with the "
+    "strategy calling the shots and once with a plain fuel-window plan. The "
+    "difference between the two runs is what that strategy was worth on that "
+    "race, with the cautions, the traffic and the other sixty cars held "
+    "identical. Positive is better in every column."
 )
 
 with st.sidebar:
@@ -65,7 +65,7 @@ with st.sidebar:
         st.error(str(e))
         st.stop()
 
-    st.header("The levers")
+    st.header("the levers")
     multipliers = {d: st.slider(d, 0.25, 3.0, 1.0, 0.05) for d in LEVERS}
 
 config = apply_levers(assets.config, multipliers)
@@ -83,18 +83,18 @@ saved = None
 
 if banks:
     bank = st.radio(
-        "Which races", banks, horizontal=True,
+        "which races", banks, horizontal=True,
         format_func=lambda b: {"headline": "the 200 headline races",
                                "held_out": "the 50 held-out races"}[b],
-        help="The held-out fifty are disjoint from the headline two hundred. "
-             "Nothing in this app runs on them - what is shown is the table "
-             "03b wrote when it asked whether the roster generalises.")
+        help="The fifty are a separate set of races, kept back and never "
+             "used to choose anything. They're the check on whether a "
+             "result holds up away from the races it was found on.")
     saved = saved_comparison(series, bank)
     if saved and saved.provenance.get("dials_fingerprint") not in (
             None, assets.fingerprint):
-        st.error(f"The saved table was measured against dials "
+        st.error(f"The saved table was measured on dials "
                  f"{saved.provenance['dials_fingerprint']!r} and these are "
-                 f"{assets.fingerprint!r}. Not shown - it is about a "
+                 f"{assets.fingerprint!r}. Not shown — it's about a "
                  f"different race.")
         saved = None
 
@@ -104,19 +104,19 @@ if saved is not None:
     n_races = int(provenance.get("n_seeds", rows["seed"].nunique()))
 else:
     if not nominal:
-        st.info("The sliders have moved, so there is no saved table for this "
-                "race. Run one below.")
+        st.info("You've moved the sliders, so no saved table covers this "
+                "race. Run a few below.")
     else:
-        st.info("No saved roster table found. Run one below.")
+        st.info("No saved table here. Run a few races below.")
 
     n = st.select_slider("Races to run", [3, 5, 10, 25], value=5,
-                         help="A roster pass costs roughly 5 s a race in "
-                              "IMSA and 3 s in WEC.")
+                         help="About 5 seconds a race at Daytona and 3 at Le "
+                              "Mans, for every strategy at once.")
     include_agent = bool(agent) and nominal
     if bool(agent) and not nominal:
-        st.caption("The agent is left out: the sliders have moved, and a "
-                   "policy scored against dials it did not train on produces "
-                   "a complete, plausible, meaningless number.")
+        st.caption("The agent sits this one out. Scoring it on dials it "
+                   "didn't train on gives a complete, plausible, "
+                   "meaningless number.")
 
     if st.button(f"Run {n} races", type="primary"):
         roster = dict(harness.ROSTER)
@@ -139,20 +139,23 @@ if summary is None:
 # ----------------------------------------------------------------------
 # The table
 # ----------------------------------------------------------------------
-st.subheader("The distribution, not the mean")
+with st.expander("What each strategy in the table actually does"):
+    for note in statements.STRATEGY_NOTES:
+        st.markdown(f"**{note.title}** (`{note.key}`) — {note.one_line}")
+
+st.subheader("how often, not how much on average")
 st.caption(
-    "**`never_pit` is a control, not a plan.** It always stays out and lets "
-    "the rules supply every stop, so it is what a policy scores when it has "
-    "learned to take no decisions at all. A row that cannot beat it has not "
-    "learned anything, which is the comparison the agent row exists to be "
-    "read against."
+    "**`never_pit` is a control, not a plan.** It never calls a stop; the "
+    "rules drag it in when the tank runs dry. So it scores what you get for "
+    "taking no decisions at all, and a row that can't beat it hasn't learned "
+    "anything. That's the row to read the agent against."
 )
 st.caption(
     "\"Gains a place in 40% of races, loses one in 12%\" is a stronger claim "
-    "than an average of 4.7, and it survives the long tails a position delta "
-    "has when a strategy occasionally throws a race away. The mean is "
-    "deliberately absent. Where a saved table carries them, `_lo` and `_hi` "
-    "are bootstrap intervals over 2,000 resamples."
+    "than an average of 4.7, and it survives the odd race a strategy throws "
+    "away entirely. There's no mean here on purpose. Where the saved table "
+    "has them, `_lo` and `_hi` are the range you'd expect these figures to "
+    "move in if you ran the whole thing again."
 )
 st.dataframe(
     summary.rename(columns={
@@ -165,15 +168,12 @@ st.dataframe(
 
 if not headline:
     st.warning(
-        f"This is {n_races} races. The headline claim in the write-up is two "
-        f"hundred, and a handful of races cannot separate strategies whose "
-        f"effects are a fraction of a position.", icon="⚠️")
+        f"This is {n_races} races. Every published figure in this project "
+        f"is two hundred, and a handful can't separate strategies whose "
+        f"effects are a fraction of a place.", icon="⚠️")
 
 if "agent" in set(rows["strategy"]):
     st.error(statements.agent_caveat().full, icon="⚠️")
 
-st.subheader("Race by race")
+st.subheader("race by race")
 st.pyplot(viz.plot_paired_deltas(rows))
-
-with st.expander("What this table was measured on"):
-    st.json(provenance)

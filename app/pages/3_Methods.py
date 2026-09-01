@@ -27,13 +27,36 @@ from endurance.params import ASSUMED_FIELDS
 
 st.set_page_config(page_title="Methods", layout="wide")
 
-st.title("What is measured and what is assumed")
+
+def _readable(key: str) -> str:
+    """A provenance key as a person would say it.
+
+    The keys come from files this page does not own, so an unknown one has
+    to render as something rather than raise. Underscores out, first letter
+    up, and nothing else - a lookup table here would go stale the moment a
+    freezing script added a field.
+    """
+    return key.replace("_", " ").strip().capitalize()
+
+
+def _plain(value) -> str:
+    """A provenance value as text, with lists spelled out rather than bracketed."""
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value)
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if value is None:
+        return "—"
+    return str(value)
+
+st.title("What's Measured and What's Assumed")
 st.markdown(
-    "Every number in this app comes from one of two places: a quantity fitted "
-    "to real lap timing, or a quantity nobody can fit to lap timing and which "
-    "was therefore chosen. The second kind are marked *assumed* throughout, "
-    "and the sliders exist because the honest response to an assumed number "
-    "is to move it and see whether the conclusion survives."
+    "Every number in this app comes from one of two places. Either it was "
+    "fitted to real lap timing, or nobody can fit it to lap timing and "
+    "somebody picked it. The second kind are marked *assumed* wherever they "
+    "appear, and they're on sliders for a reason: the honest thing to do "
+    "with a number somebody picked is move it and see whether the result "
+    "survives."
 )
 
 st.divider()
@@ -41,7 +64,6 @@ st.header("Four things to know before you read any number here")
 for s in statements.STATEMENTS:
     st.subheader(s.short)
     st.write(s.full)
-    st.caption(f"Settled at {s.source}.")
     st.write("")
 
 st.divider()
@@ -73,14 +95,36 @@ st.dataframe(frame[frame["kind"].isin(kinds)], hide_index=True,
              use_container_width=True)
 
 st.caption(
-    "One assumed dial has a measured counterpart that disagrees with it, and "
-    "it is left at its assumed value rather than quietly corrected — changing "
-    "a dial changes every number measured against it, and that is a "
-    "recalibration rather than an edit. A second, `pit_transit_frac`, turns "
-    "out not to be measurable from lap timing at all: telling what a stop "
-    "costs to enter from what it costs to fill needs stops that took "
-    "different amounts of fuel, and 62% to 90% of stops in these two races "
-    "are followed by a near-full tank. Both notes are in the note column."
+    "One assumed dial has a measured counterpart that disagrees with it. It's "
+    "been left where it is rather than quietly corrected, because changing a "
+    "dial changes every number measured against it, and that's a "
+    "recalibration rather than an edit. A second one, `pit_transit_frac`, "
+    "turns out not to be measurable from lap timing at all: telling what a "
+    "stop costs to enter apart from what it costs to fill needs stops that "
+    "took different amounts of fuel, and 62% to 90% of stops in these two "
+    "races are followed by a near-full tank. Both notes are in the last "
+    "column."
+)
+
+st.divider()
+st.header("Everything else this model assumes")
+st.markdown(
+    "The dials above are assumptions you can move. These are the ones built "
+    "into the shape of the simulator, which no slider reaches — the things it "
+    "doesn't represent at all. None of them is hidden anywhere else in this "
+    "app, and the honest way to read any result here is to ask which of them "
+    "the result depends on."
+)
+
+for group in statements.ASSUMPTION_GROUPS:
+    st.subheader(group)
+    for a in statements.ASSUMPTIONS:
+        if a.group == group:
+            st.markdown(f"- {a.text}")
+
+st.caption(
+    "This list is the same one quoted in the write-up's closing section, and "
+    "it lives in one place in the code so the two can't drift apart."
 )
 
 st.divider()
@@ -93,38 +137,47 @@ st.dataframe(
     hide_index=True, use_container_width=True)
 
 st.caption(
-    "One event per series, one running of it. See the first statement above: "
-    "the caution share alone moves by a factor of 2.8 between two adjacent "
-    "Daytonas."
+    "One event per series, and one running of it. See the first statement "
+    "above: the caution share alone moves by a factor of 2.8 between two "
+    "adjacent Daytonas."
 )
 
 st.divider()
-st.header("The artefacts this app has open")
+st.header("Where each number in this app came from")
 
 agent = load_agent(series)
-provenance = {
-    "config": {"name": assets.config.name,
-               "dials fingerprint": assets.fingerprint,
-               "duration (h)": round(assets.config.duration_s / 3600, 2)},
-    "seed bank": {"headline races": len(assets.bank.headline),
-                  "sweep races": len(assets.bank.sweep),
-                  "held out": len(assets.bank.held_out),
-                  **assets.bank.provenance},
-    "background field": assets.field.provenance,
-    "policy": ({"checkpoint": agent.card.checkpoint or "—",
-                "algorithm": agent.card.algorithm,
-                "trained against dials": agent.card.dials_fingerprint,
-                "trained against bank": agent.card.bank_fingerprint,
-                "timesteps": agent.card.total_timesteps,
-                "trained at": agent.card.trained_at}
-               if agent and agent.card else {"loaded": False,
-                                             "reason": agent.reason}),
-}
-st.json(provenance)
+provenance = [
+    ("Race", assets.config.name),
+    ("Length", f"{assets.config.duration_s / 3600:.0f} hours"),
+    ("Dials", assets.fingerprint),
+    ("Races used for every published figure", f"{len(assets.bank.headline)}"),
+    ("Races used for sweeping a dial", f"{len(assets.bank.sweep)}"),
+    ("Races held back and never selected on", f"{len(assets.bank.held_out)}"),
+]
+provenance += [(_readable(k), _plain(v))
+               for k, v in assets.bank.provenance.items()]
+provenance += [(f"Background field: {_readable(k)}", _plain(v))
+               for k, v in assets.field.provenance.items()]
+
+if agent and agent.card:
+    provenance += [
+        ("Agent", agent.card.checkpoint or "—"),
+        ("Trained with", agent.card.algorithm),
+        ("Trained on dials", agent.card.dials_fingerprint),
+        ("Trained on races", agent.card.bank_fingerprint),
+        ("Steps of training", f"{agent.card.total_timesteps:,}"),
+        ("Trained on", agent.card.trained_at),
+    ]
+else:
+    provenance += [("Agent", f"not loaded — {agent.reason}")]
+
+st.dataframe(
+    pd.DataFrame(provenance, columns=["what", "value"]),
+    hide_index=True, use_container_width=True)
 
 st.caption(
-    "The held-out fifty are disjoint from the headline two hundred and are "
-    "not used anywhere in this app. They exist to answer whether a design "
-    "chosen on the headline races generalises, and a set that has been "
-    "looked at cannot answer that."
+    "The fifty held-back races are a separate set, and nothing in this app "
+    "runs on them. They're there to answer whether something chosen on the "
+    "two hundred still holds somewhere it was never fitted to - and a set "
+    "that's been looked at can't answer that."
 )

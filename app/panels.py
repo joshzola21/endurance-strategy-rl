@@ -54,16 +54,19 @@ from .controller import ACTION_NAMES, Frame
 # so the panel prints the raw quantity beside the normalised one wherever
 # the engine can supply it.
 ROW_HELP = {
-    "race_progress": "share of the race elapsed",
-    "fuel": "tank remaining, where 1.0 is full",
-    "tyre_age": "laps on these tyres, against the assumed tyre life",
-    "gap_ahead": "gap to the class car ahead, in stops; 1.0 means nobody there",
-    "gap_behind": "gap to the class car behind, in stops; 1.0 means nobody there",
-    "under_caution": "full-course yellow",
+    "race_progress": "how much of the race has gone",
+    "fuel": "fuel left, where 1.0 is a full tank",
+    "tyre_age": "laps on these tyres, against how long a set is meant to last",
+    "gap_ahead": "gap to the car ahead in class, counted in pit stops; "
+                 "1.0 means there's nobody there",
+    "gap_behind": "gap to the car behind in class, counted in pit stops; "
+                  "1.0 means there's nobody there",
+    "under_caution": "is the race under a full-course yellow",
     "stint_laps": "laps since the last stop, against a 40-lap scale",
     "laps_down": "laps behind the class leader, against a 3-lap scale",
-    "pit_lane_open": "whether this class may enter the pits now",
-    "class_position": "standing in class, where 0.0 is leading and 1.0 is last",
+    "pit_lane_open": "can this class pit right now",
+    "class_position": "where it sits in class, where 0.0 is leading and "
+                      "1.0 is last",
 }
 
 
@@ -136,14 +139,14 @@ def mask_note(frame: Frame) -> str | None:
     the mask has removed. That is not a bug in the panel.
     """
     if frame.forced:
-        return (f"The rules have already taken this decision - {frame.forced} - "
-                f"so the engine will pit this car whatever is chosen below. "
-                f"The mask is a training aid and the policy is scored without "
-                f"it, so it may still rank staying out first.")
+        return (f"The rules have already taken this decision — {frame.forced} — "
+                f"so the car is coming in whatever you pick below. The mask is "
+                f"a training aid and the agent isn't scored with it, so it may "
+                f"still rank staying out first.")
     if not frame.lane.open:
         return (f"The pit lane is shut to this class: {frame.lane.reason}. A "
-                f"voluntary stop is refused; a forced one is taken and "
-                f"recorded.")
+                f"stop you choose is refused; a stop the rules force is taken "
+                f"and recorded.")
     return None
 
 
@@ -176,17 +179,18 @@ def override_comparison(frame: Frame, human_action: int,
     if probabilities is None:
         return Override(frame.lap, human, ACTION_NAMES[human], None, "",
                         None, None,
-                        "No policy loaded, so there is nothing to compare with.")
+                        "No agent is loaded, so there's nothing to compare "
+                        "against.")
 
     agent = int(np.argmax(probabilities))
     agreed = agent == human
-    note = ("You and the policy chose the same thing." if agreed else
-            f"The policy would have chosen {ACTION_NAMES[agent]!r}, at "
+    note = ("You and the agent made the same call." if agreed else
+            f"The agent would have chosen {ACTION_NAMES[agent]!r}, at "
             f"{probabilities[agent]:.0%} against {probabilities[human]:.0%} "
             f"for yours.")
     if frame.forced:
-        note += (f" Neither matters here: {frame.forced}, so the engine takes "
-                 f"the decision.")
+        note += (f" Neither call matters here: {frame.forced}, so the rules "
+                 f"take the decision.")
     return Override(frame.lap, human, ACTION_NAMES[human], agent,
                     ACTION_NAMES[agent], agreed, float(probabilities[human]),
                     note)

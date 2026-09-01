@@ -49,7 +49,7 @@ st.divider()
 # Sidebar: the race, the seat, the levers
 # ----------------------------------------------------------------------
 with st.sidebar:
-    st.header("The race")
+    st.header("the race")
     series = st.selectbox("Series", available_series(),
                           format_func=lambda c: c.upper())
     try:
@@ -62,19 +62,29 @@ with st.sidebar:
                f"· {assets.config.total_cars} cars")
 
     seed = st.selectbox("Seed", assets.bank.headline[:50],
-                        help="One of the two hundred headline races every "
-                             "number in this project was measured on.")
+                        help="One of the two hundred races every number in this "
+                             "project was measured on.")
 
     seat_name = st.selectbox(
-        "Who is driving the strategy",
+        "Chosen Race Strategy",
         [*ROSTER.keys(), "agent"],
-        help="The five human strategies, the never-pit control, or the "
-             "trained policy. Whoever is in the seat, the rest of the field "
-             "runs the frozen background.")
+        help="One of the five human strategies, the never-pit control, or "
+             "the trained agent. Whoever's calling it, the other sixty cars "
+             "run the same plan every time.")
 
-    st.header("The levers")
-    st.caption("Multipliers on the dials. Everything marked *assumed* is a "
-               "quantity lap timing cannot identify.")
+    note = statements.NOTE_BY_KEY.get(seat_name)
+    if note:
+        st.caption(f"**{note.title}.** {note.one_line}")
+        with st.expander("more on this one"):
+            st.write(note.detail)
+    elif seat_name == "agent":
+        st.caption("**The agent.** Trained by reinforcement learning. No "
+                   "number is reported for it, see the strip along the top.")
+
+    st.header("the levers")
+    st.caption("Each slider multiplies a dial. The ones marked *assumed* are "
+               "numbers nobody can measure from lap timing, so somebody "
+               "picked them. Move one and see whether the result survives.")
     multipliers = {}
     for dial in LEVERS:
         note = MEASURED_COUNTERPART.get(dial, "")
@@ -95,7 +105,7 @@ agent = agent_for_config(load_agent(series), config)
 
 if seat_name == "agent":
     if not agent:
-        st.error(f"The agent cannot be put in the seat: {agent.reason}")
+        st.error(f"The agent can't take this seat: {agent.reason}")
         st.stop()
     seat, seat_label = policy_seat(agent.strategy), "agent"
 else:
@@ -103,10 +113,10 @@ else:
 
 if agent and not nominal:
     st.warning(
-        "The sliders have moved, so this is not the race the policy was "
-        "trained on. It will still take decisions and you can watch what it "
-        "does — but no comparison number is shown off-nominal, because the "
-        "policy's card is about a different set of dials.", icon="⚠️")
+        "You've moved the sliders, so this isn't the race the agent was "
+        "trained on. It'll still make calls and you can watch what it does, "
+        "but no comparison number appears once the dials have moved. It "
+        "would be a number about a different race.", icon="⚠️")
 
 
 # ----------------------------------------------------------------------
@@ -142,12 +152,12 @@ def controller() -> RaceController:
             st.session_state["replayed"] = (
                 f"The race changed under you, so your {len(log)} "
                 f"{'call' if len(log) == 1 else 'calls'} were replayed against "
-                f"it from lap zero. The laps are the same laps; what happens "
-                f"on them is not.")
+                f"it from lap zero. Same laps; what happens on them is not "
+                f"the same.")
     elif st.session_state.get("race") is not None and not same_race:
         st.session_state.pop("last_override", None)
         st.session_state["replayed"] = (
-            "A different seed is a different race, so the decision log was "
+            "A different seed is a different race, so your calls were "
             "cleared.")
 
     st.session_state["controller"] = built
@@ -172,20 +182,20 @@ if replayed:
 # Controls
 # ----------------------------------------------------------------------
 c1, c2, c3, c4, c5 = st.columns(5)
-if c1.button("Step one lap", use_container_width=True):
+if c1.button("step one lap", use_container_width=True):
     ctrl.step(); remember(ctrl); st.rerun()
-if c2.button("Run to the next decision", use_container_width=True,
-             help="Stops on a caution being called, the fuel window opening, "
-                  "the pit lane opening to this class, or a stop the rules "
-                  "have already taken."):
+if c2.button("run to the next decision", use_container_width=True,
+             help="Stops when a caution comes out, when the fuel window "
+                  "opens, when the pit lane opens to this class, or when "
+                  "the rules have already called the car in."):
     ctrl.run(); remember(ctrl); st.rerun()
-if c3.button("Run to the flag", use_container_width=True):
+if c3.button("run to the flag", use_container_width=True):
     ctrl.finish(); remember(ctrl); st.rerun()
-if c4.button("Back ten laps", use_container_width=True,
+if c4.button("go back ten laps", use_container_width=True,
              help="Replays the race from the start, which takes about a "
-                  "second. Your overrides are kept."):
+                  "second. Your own calls are kept."):
     ctrl.seek(max(ctrl.lap - 10, 0)); remember(ctrl); st.rerun()
-if c5.button("Start again", use_container_width=True):
+if c5.button("start again", use_container_width=True):
     ctrl.log.clear(); ctrl.reset(); remember(ctrl)
     st.session_state.pop("last_override", None)
     st.rerun()
@@ -194,14 +204,14 @@ if c5.button("Start again", use_container_width=True):
 # The race, as it stands
 # ----------------------------------------------------------------------
 if ctrl.finished:
-    st.success("The flag.")
+    st.success("Chequered flag.")
     row = ctrl.result.classification().set_index("car_id").loc[ctrl.focal]
     m = st.columns(5)
     m[0].metric("Class position", int(row["class_pos"]))
     m[1].metric("Laps", int(row["laps"]))
     m[2].metric("Stops", int(row["stops"]))
-    m[3].metric("Time in the pits", f"{row['pit_time_s'] / 60:.1f} min")
-    m[4].metric("Time in traffic", f"{row['traffic_time_s'] / 60:.1f} min")
+    m[3].metric("In the pits", f"{row['pit_time_s'] / 60:.1f} min")
+    m[4].metric("In traffic", f"{row['traffic_time_s'] / 60:.1f} min")
 
     from endurance import viz            # charts come from viz.py unchanged
     st.pyplot(viz.plot_race(ctrl.result, class_name=ctrl.class_name))
@@ -230,31 +240,31 @@ else:
     left, right = st.columns([3, 2])
 
     with left:
-        st.subheader("What the policy sees")
-        st.caption("The ten rows exactly as the agent is handed them, with "
-                   "the quantity they were built from beside each.")
+        st.subheader("what the agent sees")
+        st.caption("The ten numbers it's handed at this point in the race, "
+                   "with the quantity each was built from beside it.")
         st.dataframe(panels.observation_rows(frame), hide_index=True,
                      use_container_width=True)
 
     with right:
-        st.subheader("What it would do")
+        st.subheader("what it would do")
         probabilities = None
         if agent:
             try:
                 from endurance.policy import action_probabilities
                 probabilities = action_probabilities(agent.strategy, frame.obs)
             except (AttributeError, ImportError) as e:
-                st.caption(f"No action probabilities available: {e}")
+                st.caption(f"No probabilities to show: {e}")
         else:
             st.caption(agent.reason)
 
-        st.caption("Probabilities, not action values. 03b chose MaskablePPO "
-                   "because the mask decides it, and the cost is that there "
-                   "is a ranking rather than a magnitude.")
+        st.caption("These are probabilities, not values. The agent ranks the "
+                   "five calls; it doesn't say how much better one is than "
+                   "another, and there's no way to ask it.")
         st.dataframe(
             [{"action": r.name,
               "P(a|s)": "—" if r.probability is None else f"{r.probability:.1%}",
-              "left open by the mask": "yes" if r.available else "no"}
+              "the rules allow it": "yes" if r.available else "no"}
              for r in panels.action_ranking(frame, probabilities)],
             hide_index=True, use_container_width=True)
 
@@ -262,10 +272,10 @@ else:
         if note:
             st.caption(note)
 
-    st.subheader("Take the decision yourself")
-    chosen = st.radio("Your call for this lap", range(len(ACTION_NAMES)),
+    st.subheader("make the call yourself")
+    chosen = st.radio("your call on this lap", range(len(ACTION_NAMES)),
                       format_func=lambda i: ACTION_NAMES[i], horizontal=True)
-    if st.button("Take it and step"):
+    if st.button("make it and step"):
         # Stamped with the lap it was taken on. The note used to be stored
         # bare, so it sat under later laps it no longer described - in the one
         # panel whose whole job is to be unambiguous.
@@ -281,7 +291,7 @@ else:
     last = st.session_state.get("last_override")
     if last:
         lap, action, note = last
-        st.caption(f"**Lap {lap}** — you chose {ACTION_NAMES[action]!r}."
+        st.caption(f"**Lap {lap}** — you called {ACTION_NAMES[action]!r}."
                    + (f" {note}" if note else ""))
         if note:
             st.caption(statements.agent_caveat().short)

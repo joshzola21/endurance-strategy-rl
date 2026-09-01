@@ -4,9 +4,9 @@ How the pieces fit, and why the boundaries are where they are.
 
 The short version: **there is one race loop, one strategy interface, one place
 each quantity is defined, and every artefact carries a hash of what it was
-built against.** Everything below is a consequence of those four, and most of
-the rules exist because the alternative was tried somewhere and failed
-quietly rather than loudly.
+built against.** Everything below follows from those four, and most of the
+rules exist because the alternative was tried somewhere and failed quietly
+rather than loudly.
 
 ---
 
@@ -39,9 +39,10 @@ quietly rather than loudly.
 
 Nothing points back up. `assets.py` sits beside the chain and is imported by
 most of it; `viz.py` and `calibrate.py` hang off the side. The property worth
-stating: **`import endurance` pulls in neither Streamlit nor the app**, and a
-test asserts it in a subprocess, because `sys.modules` inside a test session
-that has already imported both would answer a different question.
+stating outright: **`import endurance` pulls in neither Streamlit nor the
+app**, and a test asserts it in a subprocess, because `sys.modules` inside a
+test session that has already imported both would be answering a different
+question.
 
 ---
 
@@ -50,12 +51,13 @@ that has already imported both would answer a different question.
 ### 1. One race loop
 
 `RaceEngine` is the only thing that advances a race. `app/controller.py` drives
-`RaceEngine.run_stream`; the whole of its stepping is eleven lines that choose
+`RaceEngine.run_stream`, and the whole of its stepping is eleven lines choosing
 which decision to `send`.
 
 *Why.* A user interface that steps the race slightly differently from the thing
-every published number came from shows a complete, plausible race that nobody
-else can reproduce. It is the failure that produces numbers rather than errors.
+every published number came from will show a complete, plausible race that
+nobody else can reproduce. It is the failure mode that produces numbers rather
+than errors, which is the kind this project spends most of its effort on.
 
 *What enforces it.* `tests/test_app.py` walks every module under `app/` with an
 abstract syntax tree and refuses any use of `RaceEngine`, `run_race` or
@@ -69,33 +71,33 @@ does everything.
 The race configuration, the seed banks and the background field are written to
 `data/processed/` once, and every later stage loads what was written.
 
-*Why.* Training, evaluation and the notebooks must be about the *same* races,
-or an agent's row is not comparable with the human rows beside it. Three files
-that each rebuild the configuration in memory will agree right up until one of
-them is edited.
+*Why.* Training, evaluation and the notebooks have to be about the *same*
+races, or an agent's row is not comparable with the human rows beside it. Three
+files that each rebuild the configuration in memory will agree right up until
+one of them is edited.
 
 *What enforces it.* Every artefact records the dials fingerprint it was built
 against, and `freeze_assets.load_assets` refuses a mismatch rather than
-reporting it. `scripts/check_artefacts.py` checks the whole inventory at once
+reporting it. `scripts/check_artefacts.py` checks the whole inventory at once,
 and additionally refuses when two files in the tree answer to one name.
 
 ### 3. One strategy interface
 
 A strategy is a callable taking `(CarState, RaceState)` and returning a
 `PitDecision`. The five human strategies, the `never_pit` control and the
-trained policy are all that, and all six arrive at the comparison through the
-same `ROSTER` mapping.
+trained agent are all exactly that, and all six reach the comparison through
+the same `ROSTER` mapping.
 
 *Why.* An agent scored by agent-specific code can differ from the roster's
 scoring in ways that produce plausible numbers. `scripts/evaluate.py` contains
-no evaluation logic of its own: it wraps the policy, inserts it into the roster
+no evaluation logic of its own: it wraps the agent, inserts it into the roster
 under the name `agent`, and calls the same function the humans' rows came from.
 
 *Consequence worth knowing.* The action mask is a training convenience.
 `PolicyStrategy` carries none, so at scoring time an agent asking to stay out
 on an empty tank is overridden by the engine and scored on that — exactly as a
-human strategy would be. The app draws the mask beside the policy's ranking
-rather than applying it to it, and says so.
+human strategy would be. The app draws the mask beside the agent's ranking
+rather than applying it to the ranking, and says so on the page.
 
 ### 4. The app is presentation only
 
@@ -129,6 +131,16 @@ and the agent would be trained on one race and scored on another.
 
 Every figure comes from `viz.py`, unchanged, whether it is drawn in a notebook
 or on a page. A chart built inside the app is a chart the notebooks cannot use.
+
+*The consequence for styling, which is not obvious.* `.streamlit/config.toml`
+themes every widget in the app and reaches `viz.py` not at all, because
+`st.pyplot` renders a figure that was drawn before Streamlit saw it. So the
+palette exists in two files that have to be edited together, and the second of
+them is shared with the notebooks. `viz.py` applies its style per figure
+through a decorator rather than writing to `plt.rcParams` on import: a module
+that restyles matplotlib the moment it is imported changes every other figure
+in whatever notebook imported it, which is a side effect nobody asked for and
+nobody can see.
 
 ### 7. No second definition of anything
 
@@ -179,8 +191,8 @@ without running anything.
 | `dials_fingerprint(config)` | every number in the race configuration | a dial is recalibrated or swept |
 | `rules_fingerprint()` | `pitstop.RULES_VERSION`, `caution.RULES_VERSION` | the rulebook logic is rewritten |
 
-They answer different questions and are kept apart so a mismatch says which one
-moved.
+They answer different questions and are kept apart so that a mismatch says
+which one moved.
 
 The second exists because the first cannot see logic. A change to how a stop is
 priced alters every race in the project while leaving every parameter — and
@@ -234,9 +246,24 @@ case the gate itself must fail on. A gate that cannot fail is not a gate.
 | 02b benchmark | the dynamic programme agrees with brute force about the **plan** | a plan one lap off the optimum must rank strictly worse |
 | 02c comparison | the null's deltas are identically zero on every seed | a different strategy in the null seat must be caught |
 | 03a wrapper | the wrapper prices nothing and drains one stream | — |
-| 03b policy | the ONNX export agrees with the checkpoint over an evaluation pass | — |
+| 03b agent | the ONNX export agrees with the checkpoint over an evaluation pass | — |
 | 04 app | the app's race reproduces the harness's race bit for bit | two different seats must produce different races |
 | 05 packaging | every artefact present, current, and about one race | an ambiguous or orphaned artefact must be refused |
+| 06 presentation | no figure moved, and every figure quoted is still accounted for | a planted digit must fail, and a re-wrapped line must not |
+
+The last row is the one built for a rewrite. `scripts/check_figures.py` matches
+the documents against `docs/figures.json`, which ties every quoted number to
+the artefact it came from; `--strict` refuses a document holding a number that
+is in neither the manifest nor its list of exclusions. Both halves of the
+falsifier matter, and the second is the one that keeps the check usable:
+a check that fires when a paragraph is re-wrapped gets switched off during the
+one job it was built for.
+
+A `.py` file can be a document. `app/statements.py` carries the four things the
+app must say, which is the most-read text in the project, and it is read
+through its syntax tree — implicit string concatenation joined, docstrings
+excluded — so what is checked is what a visitor sees rather than what the
+module says about itself.
 
 ---
 
@@ -255,8 +282,8 @@ One of them turns out to be unmeasurable in principle from this data.
 Separating what a stop costs to enter from what it costs to fill requires
 observing stops that took different amounts of fuel, and endurance cars fill to
 the brim — between 62% and 90% of stops in these two races are followed by a
-near-full tank. `scripts/estimate_pit_transit.py` records the three attempts and why each
-fails.
+near-full tank. `scripts/estimate_pit_transit.py` records the three attempts and
+why each fails.
 
 ---
 
