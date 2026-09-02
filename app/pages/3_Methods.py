@@ -107,7 +107,7 @@ st.caption(
 )
 
 st.divider()
-st.header("Everything else this model assumes")
+st.header("The model's assumptions")
 st.markdown(
     "The dials above are assumptions you can move. These are the ones built "
     "into the shape of the simulator, which no slider reaches — the things it "

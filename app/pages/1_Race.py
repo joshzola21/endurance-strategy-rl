@@ -207,7 +207,11 @@ if ctrl.finished:
     st.success("Chequered flag.")
     row = ctrl.result.classification().set_index("car_id").loc[ctrl.focal]
     m = st.columns(5)
-    m[0].metric("Class position", int(row["class_pos"]))
+    m[0].metric("Class position", int(row["class_pos"]),
+            help=f"Your car is the {ctrl.pace_rank}th quickest in its class on "
+                 f"raw pace, so that's roughly where it finishes when strategy "
+                 f"changes nothing. Anything better or worse than that is the "
+                 f"strategy.")
     m[1].metric("Laps", int(row["laps"]))
     m[2].metric("Stops", int(row["stops"]))
     m[3].metric("In the pits", f"{row['pit_time_s'] / 60:.1f} min")
@@ -263,7 +267,7 @@ else:
                    "another, and there's no way to ask it.")
         st.dataframe(
             [{"action": r.name,
-              "P(a|s)": "—" if r.probability is None else f"{r.probability:.1%}",
+              "P(a|s)": "-" if r.probability is None else f"{r.probability:.1%}",
               "the rules allow it": "yes" if r.available else "no"}
              for r in panels.action_ranking(frame, probabilities)],
             hide_index=True, use_container_width=True)
@@ -291,7 +295,7 @@ else:
     last = st.session_state.get("last_override")
     if last:
         lap, action, note = last
-        st.caption(f"**Lap {lap}** — you called {ACTION_NAMES[action]!r}."
+        st.caption(f"**Lap {lap}** - you called {ACTION_NAMES[action]!r}."
                    + (f" {note}" if note else ""))
         if note:
             st.caption(statements.agent_caveat().short)
