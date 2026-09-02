@@ -110,8 +110,7 @@ st.divider()
 st.header("The model's assumptions")
 st.markdown(
     "The dials above are assumptions you can move. These are the ones built "
-    "into the shape of the simulator, which no slider reaches — the things it "
-    "doesn't represent at all. None of them is hidden anywhere else in this "
+    "into the shape of the simulator, which no slider can represent. None of them is hidden anywhere else in this "
     "app, and the honest way to read any result here is to ask which of them "
     "the result depends on."
 )
